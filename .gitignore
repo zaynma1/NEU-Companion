@@ -1,0 +1,25 @@
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
+*.swp
+*.swo
+
+# env/secrets
+.env
+.env.*
+*.pem
+
+# Python / tooling
+__pycache__/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# build output
+build/
+dist/
+coverage/
+node_modules/
