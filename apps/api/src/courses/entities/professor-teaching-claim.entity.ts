@@ -24,6 +24,9 @@ export class ProfessorTeachingClaim {
   @CreateDateColumn({ type: 'timestamptz', name: 'claimed_at' })
   claimedAt!: Date;
 
+  @Column({ type: 'timestamptz', nullable: true, name: 'verified_at' })
+  verifiedAt?: Date | null;
+
   @Column({ type: 'timestamptz', nullable: true, name: 'released_at' })
   releasedAt?: Date | null;
 }

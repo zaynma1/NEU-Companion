@@ -8,6 +8,7 @@ import { AuthModule } from './auth/auth.module';
 import { CoursesModule } from './courses/courses.module';
 import { TimetableModule } from './timetable/timetable.module';
 import { AdminModule } from './admin/admin.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { AdminModule } from './admin/admin.module';
     CoursesModule,
     TimetableModule,
     AdminModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [],

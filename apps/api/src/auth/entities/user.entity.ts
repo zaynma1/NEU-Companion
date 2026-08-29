@@ -8,6 +8,8 @@ import {
 import type { Session } from './session.entity';
 import type { ProfessorTeachingClaim } from '../../courses/entities/professor-teaching-claim.entity';
 import type { PersonalEvent } from '../../timetable/entities/personal-event.entity';
+import type { Notification } from '../../notifications/entities/notification.entity';
+import type { Announcement } from '../../notifications/entities/announcement.entity';
 
 @Entity('users')
 export class User {
@@ -61,4 +63,10 @@ export class User {
 
   @OneToMany('PersonalEvent', (personalEvent: PersonalEvent) => personalEvent.user)
   personalEvents!: PersonalEvent[];
+
+  @OneToMany('Notification', (notification: Notification) => notification.recipient)
+  notifications!: Notification[];
+
+  @OneToMany('Announcement', (announcement: Announcement) => announcement.professor)
+  announcements!: Announcement[];
 }

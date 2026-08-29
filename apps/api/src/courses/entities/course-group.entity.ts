@@ -3,6 +3,7 @@ import type { Course } from './course.entity';
 import type { Enrollment } from './enrollment.entity';
 import type { ProfessorTeachingClaim } from './professor-teaching-claim.entity';
 import type { OfficialEvent } from '../../timetable/entities/official-event.entity';
+import type { Announcement } from '../../notifications/entities/announcement.entity';
 
 @Entity('course_groups')
 @Unique(['course', 'groupLabel'])
@@ -34,4 +35,7 @@ export class CourseGroup {
 
   @OneToMany('OfficialEvent', (officialEvent: OfficialEvent) => officialEvent.courseGroup)
   officialEvents!: OfficialEvent[];
+
+  @OneToMany('Announcement', (announcement: Announcement) => announcement.courseGroup)
+  announcements!: Announcement[];
 }
