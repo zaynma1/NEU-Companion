@@ -5,6 +5,7 @@ import {
   OneToMany,
   PrimaryGeneratedColumn,
 } from 'typeorm';
+import { forwardRef } from '@nestjs/common';
 import { Session } from './session.entity';
 
 @Entity('users')
@@ -51,6 +52,6 @@ export class User {
   @CreateDateColumn({ type: 'timestamptz' })
   createdAt!: Date;
 
-  @OneToMany(() => Session, (session) => session.user)
+  @OneToMany(() => forwardRef(() => Session), (session) => session.user)
   sessions!: Session[];
 }
