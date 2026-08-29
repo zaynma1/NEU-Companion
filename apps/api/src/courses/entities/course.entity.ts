@@ -1,6 +1,5 @@
 import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
-import { forwardRef } from '@nestjs/common';
-import { CourseGroup } from './course-group.entity';
+import type { CourseGroup } from './course-group.entity';
 
 @Entity('courses')
 export class Course {
@@ -22,6 +21,6 @@ export class Course {
   @Column({ type: 'timestamptz', default: () => 'CURRENT_TIMESTAMP' })
   createdAt!: Date;
 
-  @OneToMany(() => forwardRef(() => CourseGroup), (courseGroup) => courseGroup.course)
+  @OneToMany('CourseGroup', (courseGroup: CourseGroup) => courseGroup.course)
   groups!: CourseGroup[];
 }

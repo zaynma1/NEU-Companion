@@ -5,6 +5,8 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import databaseConfig from './config/database.config';
 import { AuthModule } from './auth/auth.module';
+import { CoursesModule } from './courses/courses.module';
+import { TimetableModule } from './timetable/timetable.module';
 
 @Module({
   imports: [
@@ -25,6 +27,8 @@ import { AuthModule } from './auth/auth.module';
       }),
     }),
     AuthModule,
+    CoursesModule,
+    TimetableModule,
   ],
   controllers: [AppController],
   providers: [],

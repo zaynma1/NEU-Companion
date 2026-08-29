@@ -1,7 +1,8 @@
 import { Column, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn, Unique } from 'typeorm';
-import { forwardRef } from '@nestjs/common';
-import { Course } from './course.entity';
-import { Enrollment } from './enrollment.entity';
+import type { Course } from './course.entity';
+import type { Enrollment } from './enrollment.entity';
+import type { ProfessorTeachingClaim } from './professor-teaching-claim.entity';
+import type { OfficialEvent } from '../../timetable/entities/official-event.entity';
 
 @Entity('course_groups')
 @Unique(['course', 'groupLabel'])
@@ -9,7 +10,7 @@ export class CourseGroup {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
-  @ManyToOne(() => forwardRef(() => Course), (course) => course.groups, { nullable: false, onDelete: 'CASCADE' })
+  @ManyToOne('Course', (course: Course) => course.groups, { nullable: false, onDelete: 'CASCADE' })
   @JoinColumn({ name: 'course_id' })
   course!: Course;
 
@@ -25,6 +26,12 @@ export class CourseGroup {
   @Column({ type: 'boolean', default: false, name: 'is_archived' })
   isArchived!: boolean;
 
-  @OneToMany(() => forwardRef(() => Enrollment), (enrollment) => enrollment.courseGroup)
+  @OneToMany('Enrollment', (enrollment: Enrollment) => enrollment.courseGroup)
   enrollments!: Enrollment[];
+
+  @OneToMany('ProfessorTeachingClaim', (teachingClaim: ProfessorTeachingClaim) => teachingClaim.courseGroup)
+  teachingClaims!: ProfessorTeachingClaim[];
+
+  @OneToMany('OfficialEvent', (officialEvent: OfficialEvent) => officialEvent.courseGroup)
+  officialEvents!: OfficialEvent[];
 }

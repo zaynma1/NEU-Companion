@@ -42,9 +42,10 @@ Status: In progress
 - [x] Google OAuth provider setup is wired for local validation and real provider configuration
 - [ ] Real Google callback verification against the live provider is partial / still pending for end-to-end confirmation
 - [x] Core permissions and admin controls are implemented, including RBAC, fresh step-up verification, audit logging, user search, account status management, professor verification, and system configuration
-- [ ] Professor teaching-assignment management is still pending
-- [ ] Course + enrollment foundation is pending
-- [ ] Timetable + personal events are pending
+- [x] Professor teaching-assignment management is implemented
+- [x] Course + enrollment foundation is implemented
+- [x] Timetable + personal event entities and official-event model are defined
+- [ ] Timetable API surface and recurrence/conflict logic are pending
 - [ ] Notifications and announcements are pending
 - [ ] Admin import pipeline is pending
 - [ ] Deletion lifecycle is pending

@@ -109,8 +109,8 @@ This plan tracks the actual engineering work for the NEWFI platform after the de
 
 ## 7. Timetable and personal schedule domain (Domain 3)
 
-- [ ] Define timetable and personal event entities
-- [ ] Define official event calendar model
+- [x] Define timetable and personal event entities
+- [x] Define official event calendar model
 - [ ] Implement event creation / editing rules
 - [ ] Add personal event exception handling
 - [ ] Add conflict checks for personal schedules
