@@ -47,11 +47,11 @@ Status: In progress
 - [x] Timetable + personal event entities and official-event model are defined
 - [x] Timetable API surface with CRUD operations, conflict detection, and scope semantics is implemented
 - [x] Admin import pipeline and dataset lifecycle management is implemented
-- [ ] Notifications and announcements are pending
-- [ ] Admin import pipeline is pending
-- [ ] Deletion lifecycle is pending
+- [x] Notifications and announcements are implemented
 - [ ] FAQ and moderation are pending
+- [ ] Deletion lifecycle is pending
 - [ ] Profiles and office hours are pending
+- [ ] Admin operations and system controls are pending
 
 This keeps the foundation stable before feature expansion.
 

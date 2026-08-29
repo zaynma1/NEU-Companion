@@ -133,13 +133,15 @@ This plan tracks the actual engineering work for the NEWFI platform after the de
 
 ## 9. Notifications and announcements (Domain 5)
 
-- [ ] Create notification entities
-- [ ] Create announcement entities
-- [ ] Create notification delivery records
-- [ ] Add idempotency keys for safe retries
-- [ ] Implement targeting logic by role / cohort / user
-- [ ] Implement read / acknowledged state tracking
-- [ ] Add bulk notification fan-out
+- [x] Create notification entities
+- [x] Create announcement entities
+- [x] Create notification delivery records
+- [x] Add idempotency keys for safe retries
+- [x] Implement preference management (reminders, announcements)
+- [x] Implement course muting for announcement suppression
+- [x] Implement notification feed queries with read state tracking
+- [x] Implement announcement publishing with professor verification
+- [x] Add admin endpoints for delivery status and retry operations
 
 ---
 
