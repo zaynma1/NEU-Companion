@@ -1,10 +1,18 @@
 import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 import type { CourseGroup } from '../../courses/entities/course-group.entity';
+import type { DatasetVersion } from '../../admin/entities/dataset-version.entity';
 
 @Entity('official_events')
 export class OfficialEvent {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
+
+  @ManyToOne('DatasetVersion', (datasetVersion: DatasetVersion) => datasetVersion.officialEvents, { nullable: false, onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'dataset_version_id' })
+  datasetVersion!: DatasetVersion;
+
+  @Column({ type: 'uuid', name: 'dataset_version_id' })
+  datasetVersionId!: string;
 
   @ManyToOne('CourseGroup', (courseGroup: CourseGroup) => courseGroup.officialEvents, { nullable: false, onDelete: 'CASCADE' })
   @JoinColumn({ name: 'course_group_id' })
@@ -24,7 +32,4 @@ export class OfficialEvent {
 
   @Column({ type: 'varchar', length: 255, nullable: true })
   location?: string | null;
-
-  @Column({ type: 'uuid', name: 'dataset_version_id' })
-  datasetVersionId!: string;
 }

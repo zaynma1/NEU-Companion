@@ -57,24 +57,28 @@ export class TimetableService {
       return [];
     }
 
-    // Fetch official events for those groups within the date range
-    const events = await this.officialEventRepository.find({
-      where: {
-        courseGroupId: groupIds as any,
-        startDatetime: MoreThanOrEqual(startDateTime),
-        endDatetime: LessThanOrEqual(endDateTime),
-      },
-      relations: ['courseGroup'],
-    });
+    // Fetch official events for those groups within the date range from current dataset
+    const events = await this.officialEventRepository
+      .createQueryBuilder('event')
+      .leftJoinAndSelect('event.datasetVersion', 'version')
+      .leftJoinAndSelect('event.courseGroup', 'group')
+      .where('event.courseGroupId IN (:...groupIds)', { groupIds })
+      .andWhere('version.isCurrent = :isCurrent', { isCurrent: true })
+      .andWhere('event.startDatetime >= :startDateTime', { startDateTime })
+      .andWhere('event.endDatetime <= :endDateTime', { endDateTime })
+      .getMany();
 
     return events;
   }
 
   async getOfficialEventDetail(eventId: string, userId: string): Promise<OfficialEvent> {
-    const event = await this.officialEventRepository.findOne({
-      where: { id: eventId },
-      relations: ['courseGroup'],
-    });
+    const event = await this.officialEventRepository
+      .createQueryBuilder('event')
+      .leftJoinAndSelect('event.datasetVersion', 'version')
+      .leftJoinAndSelect('event.courseGroup', 'group')
+      .where('event.id = :eventId', { eventId })
+      .andWhere('version.isCurrent = :isCurrent', { isCurrent: true })
+      .getOne();
 
     if (!event) {
       throw new NotFoundException('Official event not found');
@@ -244,10 +248,12 @@ export class TimetableService {
       return [];
     }
 
-    // Find official events that overlap with the proposed personal event
+    // Find official events that overlap with the proposed personal event from current dataset
     const overlappingEvents = await this.officialEventRepository
       .createQueryBuilder('event')
+      .leftJoinAndSelect('event.datasetVersion', 'version')
       .where('event.courseGroupId IN (:...groupIds)', { groupIds })
+      .andWhere('version.isCurrent = :isCurrent', { isCurrent: true })
       .andWhere(
         '(event.startDatetime < :endDateTime AND event.endDatetime > :startDateTime)',
         { startDateTime, endDateTime },
@@ -289,13 +295,14 @@ export class TimetableService {
       throw new ForbiddenException('You are not authorized to access this group');
     }
 
-    return this.officialEventRepository.find({
-      where: {
-        courseGroupId: groupId,
-        startDatetime: MoreThanOrEqual(startDateTime),
-        endDatetime: LessThanOrEqual(endDateTime),
-      },
-      order: { startDatetime: 'ASC' },
-    });
+    return this.officialEventRepository
+      .createQueryBuilder('event')
+      .leftJoinAndSelect('event.datasetVersion', 'version')
+      .where('event.courseGroupId = :groupId', { groupId })
+      .andWhere('version.isCurrent = :isCurrent', { isCurrent: true })
+      .andWhere('event.startDatetime >= :startDateTime', { startDateTime })
+      .andWhere('event.endDatetime <= :endDateTime', { endDateTime })
+      .orderBy('event.startDatetime', 'ASC')
+      .getMany();
   }
 }

@@ -7,6 +7,7 @@ import databaseConfig from './config/database.config';
 import { AuthModule } from './auth/auth.module';
 import { CoursesModule } from './courses/courses.module';
 import { TimetableModule } from './timetable/timetable.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { TimetableModule } from './timetable/timetable.module';
     AuthModule,
     CoursesModule,
     TimetableModule,
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [],
