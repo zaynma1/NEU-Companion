@@ -111,11 +111,11 @@ This plan tracks the actual engineering work for the NEWFI platform after the de
 
 - [x] Define timetable and personal event entities
 - [x] Define official event calendar model
-- [ ] Implement event creation / editing rules
-- [ ] Add personal event exception handling
-- [ ] Add conflict checks for personal schedules
-- [ ] Add user calendar retrieval APIs
-- [ ] Add schedule filters by term / date / ownership
+- [x] Implement event creation / editing rules
+- [x] Add personal event exception handling
+- [x] Add conflict checks for personal schedules
+- [x] Add user calendar retrieval APIs
+- [x] Add schedule filters by term / date / ownership
 
 ---
 

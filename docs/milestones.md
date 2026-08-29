@@ -45,7 +45,7 @@ Status: In progress
 - [x] Professor teaching-assignment management is implemented
 - [x] Course + enrollment foundation is implemented
 - [x] Timetable + personal event entities and official-event model are defined
-- [ ] Timetable API surface and recurrence/conflict logic are pending
+- [x] Timetable API surface with CRUD operations, conflict detection, and scope semantics is implemented
 - [ ] Notifications and announcements are pending
 - [ ] Admin import pipeline is pending
 - [ ] Deletion lifecycle is pending
