@@ -1,0 +1,15 @@
+{
+  "name": "neu-companion",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:api": "npm --workspace apps/api run start:dev",
+    "build": "npm --workspace apps/api run build",
+    "start:api": "npm --workspace apps/api run start:prod",
+    "db:up": "docker compose up -d postgres redis",
+    "db:down": "docker compose down",
+    "setup": "npm install"
+  }
+}

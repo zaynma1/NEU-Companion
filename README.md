@@ -1,6 +1,6 @@
-# NEWFI
+# NEU Companion
 
-A domain-driven academic platform design and requirements baseline for course enrollment, timetable visibility, announcements, identity, admin controls, and privacy flows.
+A domain-driven academic platform for NEU students, staff, and administrators, covering course enrollment, timetable visibility, announcements, identity, admin controls, and privacy flows.
 
 ## Repository structure
 - `api-design/` — domain-by-domain API contracts
@@ -9,4 +9,4 @@ A domain-driven academic platform design and requirements baseline for course en
 - `test` — working notes / draft review file
 
 ## Current status
-This repository tracks the product specification and system design before implementation.
+This repository tracks the product specification and implementation of the NEU Companion platform.
