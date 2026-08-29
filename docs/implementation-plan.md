@@ -121,13 +121,13 @@ This plan tracks the actual engineering work for the NEWFI platform after the de
 
 ## 8. Admin import and dataset lifecycle (Domain 4)
 
-- [ ] Create import job entities
-- [ ] Create validation result entities
-- [ ] Implement dataset upload lifecycle
-- [ ] Add row-level validation workflow
-- [ ] Add import retry and rollback semantics
-- [ ] Add admin review / approval flow
-- [ ] Add import status broadcast / notifications
+- [x] Create import job entities
+- [x] Create validation result entities
+- [x] Implement dataset upload lifecycle
+- [x] Add row-level validation workflow
+- [x] Add import retry and rollback semantics
+- [x] Add admin review / approval flow
+- [x] Add import status broadcast / notifications
 
 ---
 

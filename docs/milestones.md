@@ -46,6 +46,7 @@ Status: In progress
 - [x] Course + enrollment foundation is implemented
 - [x] Timetable + personal event entities and official-event model are defined
 - [x] Timetable API surface with CRUD operations, conflict detection, and scope semantics is implemented
+- [x] Admin import pipeline and dataset lifecycle management is implemented
 - [ ] Notifications and announcements are pending
 - [ ] Admin import pipeline is pending
 - [ ] Deletion lifecycle is pending
