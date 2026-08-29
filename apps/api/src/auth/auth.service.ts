@@ -3,9 +3,12 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { OAuth2Client } from 'google-auth-library';
 import { createHash, randomUUID } from 'crypto';
 import { IsNull, Repository } from 'typeorm';
+import { AuditLogEntry } from './entities/audit-log-entry.entity';
 import { AuthAttempt } from './entities/auth-attempt.entity';
 import { Challenge } from './entities/challenge.entity';
+import { PendingReviewItem } from './entities/pending-review-item.entity';
 import { Session } from './entities/session.entity';
+import { SystemConfig } from './entities/system-config.entity';
 import { User } from './entities/user.entity';
 
 export type SessionWithToken = {
@@ -43,6 +46,12 @@ export class AuthService {
     private readonly authAttemptRepository: Repository<AuthAttempt>,
     @InjectRepository(Challenge)
     private readonly challengeRepository: Repository<Challenge>,
+    @InjectRepository(PendingReviewItem)
+    private readonly pendingReviewRepository: Repository<PendingReviewItem> = null as any,
+    @InjectRepository(AuditLogEntry)
+    private readonly auditLogRepository: Repository<AuditLogEntry> = null as any,
+    @InjectRepository(SystemConfig)
+    private readonly systemConfigRepository: Repository<SystemConfig> = null as any,
   ) {}
 
   async findOrCreateUser(input: {
@@ -71,6 +80,152 @@ export class AuthService {
     }
 
     return user;
+  }
+
+  async ensureFreshStepUp(sessionId: string): Promise<void> {
+    const session = await this.sessionRepository.findOne({ where: { id: sessionId } });
+
+    if (!session) {
+      throw new UnauthorizedException('Session not found');
+    }
+
+    if (!session.stepUpVerifiedAt) {
+      throw new UnauthorizedException('Fresh step-up verification is required');
+    }
+
+    const tenMinutesAgo = new Date(Date.now() - 1000 * 60 * 10);
+    if (session.stepUpVerifiedAt < tenMinutesAgo) {
+      throw new UnauthorizedException('Fresh step-up verification is required');
+    }
+  }
+
+  async setUserRole(
+    userId: string,
+    role: 'student' | 'professor' | 'admin',
+    actorUserId?: string,
+    sessionId?: string,
+  ): Promise<User> {
+    if (sessionId) {
+      await this.ensureFreshStepUp(sessionId);
+    }
+
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    if (actorUserId && actorUserId === userId) {
+      throw new UnauthorizedException('Self-role escalation is not allowed through direct role correction');
+    }
+
+    const previousRole = user.role;
+    user.role = role;
+    const saved = await this.userRepository.save(user);
+
+    if (this.pendingReviewRepository) {
+      const openItems = await this.pendingReviewRepository.find({
+        where: { userId, decision: IsNull() },
+      });
+
+      for (const item of openItems) {
+        item.decision = 'superseded';
+        item.decidedAt = new Date();
+        item.resolutionNotes = item.resolutionNotes ?? 'Superseded by direct admin role correction';
+        await this.pendingReviewRepository.save(item);
+      }
+    }
+
+    if (this.auditLogRepository) {
+      await this.auditLogRepository.save(
+        this.auditLogRepository.create({
+          actorId: actorUserId ?? null,
+          actorLabelSnapshot: actorUserId ? `admin:${actorUserId}` : 'system-role-update',
+          actionType: 'role_changed',
+          targetEntity: 'users',
+          targetId: userId,
+          beforeValue: { role: previousRole },
+          afterValue: { role },
+        }),
+      );
+    }
+
+    return saved;
+  }
+
+  async logAdminReviewDecision(input: {
+    actorUserId: string;
+    targetUserId: string;
+    decision: 'approved' | 'rejected' | 'reassigned';
+    finalRole?: 'student' | 'professor' | 'admin';
+    notes?: string;
+  }): Promise<void> {
+    await this.auditLogRepository.save(
+      this.auditLogRepository.create({
+        actorId: input.actorUserId,
+        actorLabelSnapshot: `admin:${input.actorUserId}`,
+        actionType: 'pending_review_decision',
+        targetEntity: 'pending_review_items',
+        targetId: input.targetUserId,
+        beforeValue: { decision: input.decision },
+        afterValue: {
+          decision: input.decision,
+          finalRole: input.finalRole ?? null,
+          notes: input.notes ?? null,
+        },
+      }),
+    );
+  }
+
+  async listPendingReviewItems(): Promise<PendingReviewItem[]> {
+    return this.pendingReviewRepository.find({
+      where: [{ decision: IsNull() }],
+      order: { submittedAt: 'DESC' },
+    });
+  }
+
+  async decidePendingReviewItem(input: {
+    itemId: string;
+    decision: 'approved' | 'rejected' | 'reassigned';
+    actorUserId: string;
+    proposedRole?: 'student' | 'professor' | 'admin';
+    resolutionNotes?: string;
+  }): Promise<PendingReviewItem> {
+    const item = await this.pendingReviewRepository.findOne({ where: { id: input.itemId } });
+
+    if (!item) {
+      throw new UnauthorizedException('Pending review item not found');
+    }
+
+    if (item.decision) {
+      throw new UnauthorizedException('This pending review item has already been resolved');
+    }
+
+    if (input.decision === 'approved' && !input.proposedRole) {
+      throw new UnauthorizedException('A proposed role is required for approvals');
+    }
+
+    item.decision = input.decision;
+    item.reviewerId = input.actorUserId;
+    item.decidedAt = new Date();
+    item.resolutionNotes = input.resolutionNotes ?? null;
+    item.proposedRole = input.proposedRole ?? item.proposedRole ?? null;
+
+    const saved = await this.pendingReviewRepository.save(item);
+
+    if (input.decision === 'approved' && input.proposedRole) {
+      await this.setUserRole(item.userId, input.proposedRole);
+    }
+
+    await this.logAdminReviewDecision({
+      actorUserId: input.actorUserId,
+      targetUserId: item.userId,
+      decision: input.decision,
+      finalRole: input.proposedRole,
+      notes: input.resolutionNotes,
+    });
+
+    return saved;
   }
 
   hashToken(token: string): string {
@@ -336,9 +491,17 @@ export class AuthService {
       throw new UnauthorizedException('Challenge verification failed');
     }
 
+    const verifiedAt = new Date();
     await this.challengeRepository.update(challenge.id, {
-      consumedAt: new Date(),
+      consumedAt: verifiedAt,
     });
+
+    if (challenge.sessionId) {
+      await this.sessionRepository.update(challenge.sessionId, {
+        stepUpVerifiedAt: verifiedAt,
+      });
+    }
+
     await this.recordAuthAttempt({
       clientFingerprint: challenge.deviceFingerprint,
       accountUserId: challenge.accountUserId ?? null,
@@ -349,5 +512,226 @@ export class AuthService {
       verified: true,
       challengeId: challenge.id,
     };
+  }
+
+  async searchUsers(input: {
+    q: string | null;
+    role: 'student' | 'professor' | 'admin' | 'pending' | null;
+    accountStatus: 'active' | 'suspended' | 'blocked' | null;
+    limit: number;
+    cursor: string | null;
+  }): Promise<{
+    items: Array<{
+      id: string;
+      email: string | null;
+      fullName: string | null;
+      role: string;
+      accountStatus: string;
+    }>;
+    nextCursor: string | null;
+  }> {
+    let query = this.userRepository.createQueryBuilder('u');
+
+    if (input.q) {
+      const searchTerm = `%${input.q.toLowerCase()}%`;
+      query = query.andWhere(
+        'LOWER(u.email) ILIKE :q OR LOWER(u.fullName) ILIKE :q',
+        { q: searchTerm },
+      );
+    }
+
+    if (input.role) {
+      query = query.andWhere('u.role = :role', { role: input.role });
+    }
+
+    if (input.accountStatus) {
+      query = query.andWhere('u.accountStatus = :accountStatus', { accountStatus: input.accountStatus });
+    }
+
+    if (input.cursor) {
+      query = query.andWhere('u.id > :cursor', { cursor: input.cursor });
+    }
+
+    const items = await query
+      .orderBy('u.id', 'ASC')
+      .take(input.limit + 1)
+      .getMany();
+
+    const hasMore = items.length > input.limit;
+    const results = hasMore ? items.slice(0, input.limit) : items;
+
+    return {
+      items: results.map((u) => ({
+        id: u.id,
+        email: u.email ?? null,
+        fullName: u.fullName ?? null,
+        role: u.role,
+        accountStatus: u.accountStatus,
+      })),
+      nextCursor: hasMore ? results[results.length - 1]?.id ?? null : null,
+    };
+  }
+
+  async setAccountStatus(
+    userId: string,
+    accountStatus: 'active' | 'suspended' | 'blocked',
+    actorUserId?: string,
+    sessionId?: string,
+  ): Promise<User> {
+    if (sessionId) {
+      await this.ensureFreshStepUp(sessionId);
+    }
+
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    const previousStatus = user.accountStatus;
+    user.accountStatus = accountStatus;
+    const saved = await this.userRepository.save(user);
+
+    if (accountStatus !== 'active') {
+      await this.revokeAllSessionsForUser(userId);
+    }
+
+    if (this.auditLogRepository) {
+      await this.auditLogRepository.save(
+        this.auditLogRepository.create({
+          actorId: actorUserId ?? null,
+          actorLabelSnapshot: actorUserId ? `admin:${actorUserId}` : 'system',
+          actionType: 'account_status_changed',
+          targetEntity: 'users',
+          targetId: userId,
+          beforeValue: { accountStatus: previousStatus },
+          afterValue: { accountStatus },
+        }),
+      );
+    }
+
+    return saved;
+  }
+
+  async grantVerification(
+    userId: string,
+    actorUserId?: string,
+    sessionId?: string,
+  ): Promise<User> {
+    if (sessionId) {
+      await this.ensureFreshStepUp(sessionId);
+    }
+
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    if (user.role !== 'professor') {
+      throw new UnauthorizedException('Only professors can be verified');
+    }
+
+    const previousVerificationAt = user.professorVerifiedAt;
+    user.professorVerifiedAt = new Date();
+    const saved = await this.userRepository.save(user);
+
+    if (this.auditLogRepository) {
+      await this.auditLogRepository.save(
+        this.auditLogRepository.create({
+          actorId: actorUserId ?? null,
+          actorLabelSnapshot: actorUserId ? `admin:${actorUserId}` : 'system',
+          actionType: 'professor_verification_granted',
+          targetEntity: 'users',
+          targetId: userId,
+          beforeValue: { professorVerifiedAt: previousVerificationAt ?? null },
+          afterValue: { professorVerifiedAt: saved.professorVerifiedAt },
+        }),
+      );
+    }
+
+    return saved;
+  }
+
+  async revokeVerification(
+    userId: string,
+    actorUserId?: string,
+    sessionId?: string,
+  ): Promise<User> {
+    if (sessionId) {
+      await this.ensureFreshStepUp(sessionId);
+    }
+
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    const previousVerificationAt = user.professorVerifiedAt;
+    user.professorVerifiedAt = null;
+    const saved = await this.userRepository.save(user);
+
+    if (this.auditLogRepository) {
+      await this.auditLogRepository.save(
+        this.auditLogRepository.create({
+          actorId: actorUserId ?? null,
+          actorLabelSnapshot: actorUserId ? `admin:${actorUserId}` : 'system',
+          actionType: 'professor_verification_revoked',
+          targetEntity: 'users',
+          targetId: userId,
+          beforeValue: { professorVerifiedAt: previousVerificationAt ?? null },
+          afterValue: { professorVerifiedAt: null },
+        }),
+      );
+    }
+
+    return saved;
+  }
+
+  async getSystemConfig(): Promise<Array<{ key: string; value: string }>> {
+    if (!this.systemConfigRepository) {
+      return [];
+    }
+
+    const configs = await this.systemConfigRepository.find();
+    return configs.map((c) => ({ key: c.key, value: c.value }));
+  }
+
+  async updateSystemConfig(
+    key: string,
+    value: string,
+    actorUserId?: string,
+  ): Promise<SystemConfig> {
+    if (!this.systemConfigRepository) {
+      throw new UnauthorizedException('System config is not available');
+    }
+
+    let config = await this.systemConfigRepository.findOne({ where: { key } });
+
+    if (!config) {
+      config = this.systemConfigRepository.create({ key, value, updatedBy: actorUserId });
+    } else {
+      config.value = value;
+      config.updatedBy = actorUserId ?? null;
+    }
+
+    const saved = await this.systemConfigRepository.save(config);
+
+    if (this.auditLogRepository) {
+      await this.auditLogRepository.save(
+        this.auditLogRepository.create({
+          actorId: actorUserId ?? null,
+          actorLabelSnapshot: actorUserId ? `admin:${actorUserId}` : 'system',
+          actionType: 'system_config_updated',
+          targetEntity: 'system_config',
+          targetId: key,
+          beforeValue: { key },
+          afterValue: { key, value },
+        }),
+      );
+    }
+
+    return saved;
   }
 }

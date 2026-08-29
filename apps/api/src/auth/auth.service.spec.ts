@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { createHash } from 'crypto';
 import { AuthService } from './auth.service';
 
@@ -28,11 +29,25 @@ describe('AuthService challenge flow', () => {
     update: jest.fn(),
   };
 
+  const pendingReviewRepository = {
+    findOne: jest.fn(),
+    find: jest.fn(),
+    save: jest.fn(),
+    update: jest.fn(),
+  };
+
+  const auditLogRepository = {
+    create: jest.fn(),
+    save: jest.fn(),
+  };
+
   const authService = new AuthService(
     userRepository as any,
     sessionRepository as any,
     authAttemptRepository as any,
     challengeRepository as any,
+    pendingReviewRepository as any,
+    auditLogRepository as any,
   );
 
   it('issues a challenge and verifies it without exposing the stored secret', async () => {
@@ -109,5 +124,17 @@ describe('AuthService challenge flow', () => {
         delete process.env.NODE_ENV;
       }
     }
+  });
+
+  it('requires fresh step-up verification before a privileged role change', async () => {
+    sessionRepository.findOne.mockResolvedValue({
+      id: 'session-1',
+      userId: 'user-1',
+      stepUpVerifiedAt: new Date(Date.now() - 1000 * 60 * 20),
+    });
+
+    await expect(authService.ensureFreshStepUp('user-1', 'session-1')).rejects.toThrow(
+      'Fresh step-up verification is required',
+    );
   });
 });

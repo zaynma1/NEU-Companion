@@ -5,35 +5,45 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { Request } from 'express';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Session } from './entities/session.entity';
+import { AuthService } from './auth.service';
 
 @Injectable()
 export class AuthGuard implements CanActivate {
-  constructor(
-    @InjectRepository(Session)
-    private readonly sessionRepository: Repository<Session>,
-  ) {}
+  constructor(private readonly authService: AuthService) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const req = context.switchToHttp().getRequest<Request & { user?: { id: string } }>();
-    const sessionId = req.cookies?.neu_companion_session;
+    const req = context.switchToHttp().getRequest<
+      Request & {
+        user?: {
+          id: string;
+          sessionId?: string;
+          role?: string;
+          email?: string | null;
+          accountStatus?: string;
+        };
+      }
+    >();
 
-    if (!sessionId) {
+    const token = req.cookies?.neu_companion_session;
+
+    if (!token) {
       throw new UnauthorizedException('Missing session cookie');
     }
 
-    const session = await this.sessionRepository.findOne({
-      where: { id: sessionId },
-      relations: { user: true },
-    });
+    const session = await this.authService.validateSessionToken(token);
 
-    if (!session || session.revokedAt || new Date(session.absoluteExpiresAt) < new Date()) {
-      throw new UnauthorizedException('Session is invalid or expired');
+    if (!session.user) {
+      throw new UnauthorizedException('Session user not found');
     }
 
-    req.user = { id: session.userId };
+    req.user = {
+      id: session.user.id,
+      sessionId: session.id,
+      role: session.user.role,
+      email: session.user.email,
+      accountStatus: session.user.accountStatus,
+    };
+
     return true;
   }
 }

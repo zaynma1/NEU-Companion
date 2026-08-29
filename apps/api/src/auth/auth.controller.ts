@@ -90,10 +90,10 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ) {
     const email = body.email?.trim().toLowerCase();
-    const idToken = body.email ? undefined : (body as any).idToken ?? (body as any).credential;
+    const idToken = body.idToken ?? body.credential ?? undefined;
     const usesLocalDevFallback = !process.env.GOOGLE_CLIENT_ID && !!email && !!body.googleSub;
 
-    if (!body.code && !idToken && !body.credential && !usesLocalDevFallback) {
+    if (!body.code && !idToken && !usesLocalDevFallback) {
       throw new UnauthorizedException('Google OAuth code or ID token is required');
     }
 

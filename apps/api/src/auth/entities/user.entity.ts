@@ -43,6 +43,9 @@ export class User {
   isSystemPlaceholder!: boolean;
 
   @Column({ type: 'timestamptz', nullable: true })
+  professorVerifiedAt?: Date | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
   deletionRequestedAt?: Date | null;
 
   @CreateDateColumn({ type: 'timestamptz' })

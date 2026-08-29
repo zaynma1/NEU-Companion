@@ -3,10 +3,20 @@ module.exports = {
   testEnvironment: 'node',
   rootDir: '.',
   testMatch: ['**/*.spec.ts'],
-  moduleFileExtensions: ['ts', 'js', 'json'],
   extensionsToTreatAsEsm: ['.ts'],
+  moduleFileExtensions: ['ts', 'js', 'json'],
   transform: {
-    '^.+\\.(t|j)s$': ['ts-jest', { useESM: true, isolatedModules: true }],
+    '^.+\.tsx?$': [
+      'ts-jest',
+      {
+        isolatedModules: true,
+        useESM: true,
+        tsconfig: {
+          module: 'ESNext',
+          moduleResolution: 'Bundler',
+        },
+      },
+    ],
   },
   transformIgnorePatterns: ['node_modules/(?!(?:@nestjs/typeorm|@nestjs)/)'],
 };
