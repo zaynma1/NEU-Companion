@@ -15,10 +15,10 @@ export class ImportBatch {
   term!: string;
 
   @ManyToOne('User', { nullable: false, onDelete: 'RESTRICT' })
-  @JoinColumn({ name: 'uploadedBy' })
+  @JoinColumn({ name: 'uploaded_by' })
   uploadedBy!: User;
 
-  @Column({ type: 'uuid', name: 'uploadedBy' })
+  @Column({ type: 'uuid', name: 'uploaded_by' })
   uploadedById!: string;
 
   @Column({ type: 'text', name: 'file_name' })
