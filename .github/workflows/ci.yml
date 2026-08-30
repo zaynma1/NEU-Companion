@@ -70,17 +70,22 @@ jobs:
         run: |
           npm --workspace apps/api run start:prod &
           SERVER_PID=$!
-          sleep 3
-          
-          # Verify health endpoint responds
-          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3001/ || echo "000")
+
+          echo "Waiting for API to start..."
+
+          for i in {1..30}; do
+            if curl -sf http://localhost:3001/ > /dev/null; then
+              echo "✓ API health check passed"
+              kill $SERVER_PID 2>/dev/null || true
+              wait $SERVER_PID 2>/dev/null || true
+              exit 0
+            fi
+
+            echo "API not ready yet... ($i/30)"
+            sleep 1
+          done
+
+          echo "✗ API failed to become ready"
           kill $SERVER_PID 2>/dev/null || true
           wait $SERVER_PID 2>/dev/null || true
-          
-          if [ "$HTTP_STATUS" = "200" ]; then
-            echo "✓ API health check passed (HTTP $HTTP_STATUS)"
-            exit 0
-          else
-            echo "✗ API health check failed (HTTP $HTTP_STATUS)"
-            exit 1
-          fi
+          exit 1
