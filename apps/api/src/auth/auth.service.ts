@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { OAuth2Client } from 'google-auth-library';
 import { createHash, randomUUID } from 'crypto';
@@ -40,7 +40,17 @@ const SUPPORTED_SYSTEM_CONFIG_KEYS = new Set(['active_term', 'campus_timezone'])
 
 @Injectable()
 export class AuthService {
-  private readonly googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+  private readonly logger = new Logger(AuthService.name);
+  private readonly googleOAuthRequestStore = new Map<string, { nonce: string; expiresAt: number }>();
+  private readonly googleOAuthRequestTtlMs = 15 * 60 * 1000;
+
+  private getGoogleClient(): OAuth2Client {
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+    const redirectUri = process.env.GOOGLE_REDIRECT_URI ?? 'http://localhost:3000/api/v1/auth/google/callback';
+
+    return new OAuth2Client(clientId, clientSecret, redirectUri);
+  }
 
   constructor(
     @InjectRepository(User)
@@ -457,13 +467,19 @@ export class AuthService {
 
   async ensureAllowedDomain(email: string): Promise<boolean> {
     if (!email || !email.includes('@')) {
+      this.logger.warn(`Domain validation failed: invalid email format: ${email ?? '<empty>'}`);
       return false;
     }
 
     const domain = email.split('@')[1]?.toLowerCase();
     const allowedDomains = ['std.neu.edu.tr', 'neu.edu.tr'];
+    const allowed = !!domain && allowedDomains.includes(domain);
 
-    return domain ? allowedDomains.includes(domain) : false;
+    this.logger.debug(
+      `Allowed domain check: email=${email}, domain=${domain ?? '<missing>'}, allowed=${allowed}`,
+    );
+
+    return allowed;
   }
 
   async validateSessionToken(token: string): Promise<Session> {
@@ -480,14 +496,47 @@ export class AuthService {
     return session;
   }
 
+  private registerGoogleOAuthRequest(state: string, nonce: string): void {
+    const expiresAt = Date.now() + this.googleOAuthRequestTtlMs;
+    this.googleOAuthRequestStore.set(state, { nonce, expiresAt });
+
+    for (const [storedState, value] of this.googleOAuthRequestStore.entries()) {
+      if (value.expiresAt <= Date.now()) {
+        this.googleOAuthRequestStore.delete(storedState);
+      }
+    }
+  }
+
+  private consumeGoogleOAuthRequest(state: string, nonce?: string): boolean {
+    const stored = this.googleOAuthRequestStore.get(state);
+    if (!stored) {
+      return false;
+    }
+
+    if (stored.expiresAt <= Date.now()) {
+      this.googleOAuthRequestStore.delete(state);
+      return false;
+    }
+
+    if (nonce && stored.nonce !== nonce) {
+      this.googleOAuthRequestStore.delete(state);
+      return false;
+    }
+
+    this.googleOAuthRequestStore.delete(state);
+    return true;
+  }
+
   buildGoogleLoginUrl(state?: string, nonce?: string): string {
     const clientId = process.env.GOOGLE_CLIENT_ID;
     const redirectUri = process.env.GOOGLE_REDIRECT_URI ?? 'http://localhost:3000/api/v1/auth/google/callback';
     const localBaseUrl = `http://localhost:${process.env.PORT || 3000}`;
 
+    const localState = state ?? randomUUID();
+    const localNonce = nonce ?? randomUUID();
+
     if (!clientId) {
-      const localState = state ?? randomUUID();
-      const localNonce = nonce ?? randomUUID();
+      this.registerGoogleOAuthRequest(localState, localNonce);
 
       const params = new URLSearchParams({
         mode: 'local-dev',
@@ -498,6 +547,8 @@ export class AuthService {
       return `${localBaseUrl}/api/v1/auth/google/local?${params.toString()}`;
     }
 
+    this.registerGoogleOAuthRequest(localState, localNonce);
+
     const params = new URLSearchParams({
       client_id: clientId,
       redirect_uri: redirectUri,
@@ -505,8 +556,8 @@ export class AuthService {
       scope: 'openid email profile',
       access_type: 'offline',
       prompt: 'consent',
-      state: state ?? randomUUID(),
-      nonce: nonce ?? randomUUID(),
+      state: localState,
+      nonce: localNonce,
     });
 
     return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
@@ -524,15 +575,32 @@ export class AuthService {
     const hasProviderCode = !!input.code;
     const hasIdTokenInput = !!input.email && !!input.googleSub;
 
+    this.logger.debug(
+      `Validating Google callback: hasProviderCode=${hasProviderCode}, hasIdTokenInput=${hasIdTokenInput}, state=${input.state ?? '<missing>'}, nonce=${input.nonce ?? '<missing>'}, email=${input.email ?? '<missing>'}, googleSub=${input.googleSub ?? '<missing>'}`,
+    );
+
     if (!hasProviderCode && !hasIdTokenInput) {
       throw new UnauthorizedException('Google OAuth code or ID token is required');
     }
 
     const clientId = process.env.GOOGLE_CLIENT_ID;
-    const needsStateAndNonce = !!clientId && !!input.code;
+    const needsStateValidation = !!clientId && !!input.code;
 
-    if (needsStateAndNonce && (!input.state || !input.nonce)) {
-      throw new UnauthorizedException('Google OAuth state and nonce are required');
+    if (needsStateValidation && !input.state) {
+      this.logger.warn('Google callback rejected: missing OAuth state while client is configured');
+      throw new UnauthorizedException('Google OAuth state is required');
+    }
+
+    if (needsStateValidation) {
+      const validState = this.consumeGoogleOAuthRequest(input.state!, input.nonce);
+      this.logger.debug(
+        `State validation result: state=${input.state}, nonce=${input.nonce ?? '<missing>'}, valid=${validState}`,
+      );
+      if (!validState) {
+        throw new UnauthorizedException(
+          input.nonce ? 'Google OAuth state and nonce mismatch' : 'Google OAuth state mismatch',
+        );
+      }
     }
 
     const email = input.email?.trim().toLowerCase();
@@ -540,11 +608,16 @@ export class AuthService {
       throw new UnauthorizedException('Google account email is required');
     }
 
-    if (!(await this.ensureAllowedDomain(email))) {
+    const domainAllowed = await this.ensureAllowedDomain(email);
+    if (!domainAllowed) {
+      this.logger.warn(`Google callback rejected for disallowed domain: ${email}`);
       throw new UnauthorizedException('Email domain is not allowed for NEU Companion');
     }
 
     const existingUser = await this.userRepository.findOne({ where: { email } });
+    this.logger.debug(
+      `Google callback user check: email=${email}, existingUser=${existingUser ? existingUser.id : '<none>'}, accountStatus=${existingUser?.accountStatus ?? '<none>'}`,
+    );
     if (existingUser && (existingUser.accountStatus === 'suspended' || existingUser.accountStatus === 'blocked')) {
       throw new UnauthorizedException('Account is suspended or blocked');
     }
@@ -555,6 +628,52 @@ export class AuthService {
       firstName: input.firstName ?? existingUser?.fullName?.split(' ')[0] ?? null,
       lastName: input.lastName ?? existingUser?.fullName?.split(' ').slice(1).join(' ') ?? null,
     };
+  }
+
+  async exchangeGoogleCodeForIdentity(
+    code: string,
+    state?: string,
+    nonce?: string,
+  ): Promise<{
+    email: string;
+    googleSub: string;
+    firstName?: string | null;
+    lastName?: string | null;
+  }> {
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+    const redirectUri = process.env.GOOGLE_REDIRECT_URI ?? 'http://localhost:3000/api/v1/auth/google/callback';
+
+    if (!clientId || !clientSecret) {
+      throw new UnauthorizedException('Google OAuth client ID and secret are required');
+    }
+
+    if (!code) {
+      throw new UnauthorizedException('Google authorization code is required');
+    }
+
+    if (state) {
+      if (!this.consumeGoogleOAuthRequest(state, nonce)) {
+        throw new UnauthorizedException(
+          nonce ? 'Google OAuth state and nonce mismatch' : 'Google OAuth state mismatch',
+        );
+      }
+    } else if (nonce) {
+      throw new UnauthorizedException('Google OAuth state is required');
+    }
+
+    const googleClient = this.getGoogleClient();
+    const tokenResponse = await googleClient.getToken({
+      code,
+      redirect_uri: redirectUri,
+    });
+
+    const idToken = tokenResponse.tokens.id_token;
+    if (!idToken) {
+      throw new UnauthorizedException('Google token exchange did not return an ID token');
+    }
+
+    return this.verifyGoogleIdentity(idToken);
   }
 
   async verifyGoogleIdentity(idToken: string): Promise<{
@@ -572,7 +691,8 @@ export class AuthService {
       throw new UnauthorizedException('Google OAuth client ID is not configured');
     }
 
-    const ticket = await this.googleClient.verifyIdToken({
+    const googleClient = this.getGoogleClient();
+    const ticket = await googleClient.verifyIdToken({
       idToken,
       audience: clientId,
     });

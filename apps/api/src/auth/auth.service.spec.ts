@@ -1,4 +1,5 @@
 import { describe, it, expect, jest } from '@jest/globals';
+import { OAuth2Client } from 'google-auth-library';
 import { createHash } from 'crypto';
 import { AuthService } from './auth.service';
 
@@ -170,7 +171,36 @@ describe('AuthService challenge flow', () => {
           email: 'student@std.neu.edu.tr',
           googleSub: 'google-sub-123',
         }),
-      ).rejects.toThrow('Google OAuth state and nonce are required');
+      ).rejects.toThrow('Google OAuth state is required');
+    } finally {
+      if (previousClientId) {
+        process.env.GOOGLE_CLIENT_ID = previousClientId;
+      } else {
+        delete process.env.GOOGLE_CLIENT_ID;
+      }
+    }
+  });
+
+  it('accepts the real Google callback shape where only the state is returned in the redirect URL', async () => {
+    const previousClientId = process.env.GOOGLE_CLIENT_ID;
+    process.env.GOOGLE_CLIENT_ID = 'test-client-id';
+
+    try {
+      authService.buildGoogleLoginUrl('state-real-callback', 'nonce-real-callback');
+      userRepository.findOne.mockResolvedValue({
+        id: 'user-1',
+        email: 'student@std.neu.edu.tr',
+        accountStatus: 'active',
+      });
+
+      await expect(
+        authService.validateGoogleCallbackInput({
+          code: 'fake-code',
+          state: 'state-real-callback',
+          email: 'student@std.neu.edu.tr',
+          googleSub: 'google-sub-123',
+        }),
+      ).resolves.toMatchObject({ email: 'student@std.neu.edu.tr', googleSub: 'google-sub-123' });
     } finally {
       if (previousClientId) {
         process.env.GOOGLE_CLIENT_ID = previousClientId;
@@ -185,6 +215,8 @@ describe('AuthService challenge flow', () => {
     process.env.GOOGLE_CLIENT_ID = 'test-client-id';
 
     try {
+      authService.buildGoogleLoginUrl('state-123', 'nonce-123');
+
       userRepository.findOne.mockResolvedValue({
         id: 'user-1',
         email: 'student@std.neu.edu.tr',
@@ -205,6 +237,100 @@ describe('AuthService challenge flow', () => {
         process.env.GOOGLE_CLIENT_ID = previousClientId;
       } else {
         delete process.env.GOOGLE_CLIENT_ID;
+      }
+    }
+  });
+
+  it('stores and validates Google OAuth state/nonce pairs for the real provider callback', async () => {
+    const previousClientId = process.env.GOOGLE_CLIENT_ID;
+    process.env.GOOGLE_CLIENT_ID = 'test-client-id';
+
+    try {
+      const generated = authService.buildGoogleLoginUrl('state-actual', 'nonce-actual');
+      expect(generated).toContain('state=state-actual');
+      expect(generated).toContain('nonce=nonce-actual');
+
+      userRepository.findOne.mockResolvedValue({
+        id: 'user-1',
+        email: 'student@std.neu.edu.tr',
+        accountStatus: 'active',
+      });
+
+      await expect(
+        authService.validateGoogleCallbackInput({
+          code: 'fake-code',
+          state: 'state-actual',
+          nonce: 'nonce-actual',
+          email: 'student@std.neu.edu.tr',
+          googleSub: 'google-sub-123',
+        }),
+      ).resolves.toMatchObject({ email: 'student@std.neu.edu.tr', googleSub: 'google-sub-123' });
+
+      await expect(
+        authService.validateGoogleCallbackInput({
+          code: 'fake-code',
+          state: 'state-actual',
+          nonce: 'wrong-nonce',
+          email: 'student@std.neu.edu.tr',
+          googleSub: 'google-sub-123',
+        }),
+      ).rejects.toThrow('Google OAuth state and nonce mismatch');
+    } finally {
+      if (previousClientId) {
+        process.env.GOOGLE_CLIENT_ID = previousClientId;
+      } else {
+        delete process.env.GOOGLE_CLIENT_ID;
+      }
+    }
+  });
+
+  it('exchanges the Google authorization code for a verified user identity', async () => {
+    const previousClientId = process.env.GOOGLE_CLIENT_ID;
+    const previousSecret = process.env.GOOGLE_CLIENT_SECRET;
+    const previousRedirectUri = process.env.GOOGLE_REDIRECT_URI;
+    process.env.GOOGLE_CLIENT_ID = 'test-client-id';
+    process.env.GOOGLE_CLIENT_SECRET = 'test-client-secret';
+    process.env.GOOGLE_REDIRECT_URI = 'http://localhost:3000/api/v1/auth/google/callback';
+
+    try {
+      authService.buildGoogleLoginUrl('state-exchange', 'nonce-exchange');
+      const getTokenSpy = jest.spyOn(OAuth2Client.prototype, 'getToken');
+      getTokenSpy.mockImplementation(async () => ({
+        tokens: { id_token: 'google-id-token' },
+      } as any));
+      const verifyIdentitySpy = jest.spyOn(authService, 'verifyGoogleIdentity').mockResolvedValue({
+        email: 'student@std.neu.edu.tr',
+        googleSub: 'google-sub-exchange',
+        firstName: 'Student',
+        lastName: 'User',
+      });
+
+      await expect(
+        authService.exchangeGoogleCodeForIdentity('auth-code', 'state-exchange', 'nonce-exchange'),
+      ).resolves.toMatchObject({
+        email: 'student@std.neu.edu.tr',
+        googleSub: 'google-sub-exchange',
+      });
+
+      getTokenSpy.mockRestore();
+      verifyIdentitySpy.mockRestore();
+    } finally {
+      if (previousClientId) {
+        process.env.GOOGLE_CLIENT_ID = previousClientId;
+      } else {
+        delete process.env.GOOGLE_CLIENT_ID;
+      }
+
+      if (previousSecret) {
+        process.env.GOOGLE_CLIENT_SECRET = previousSecret;
+      } else {
+        delete process.env.GOOGLE_CLIENT_SECRET;
+      }
+
+      if (previousRedirectUri) {
+        process.env.GOOGLE_REDIRECT_URI = previousRedirectUri;
+      } else {
+        delete process.env.GOOGLE_REDIRECT_URI;
       }
     }
   });

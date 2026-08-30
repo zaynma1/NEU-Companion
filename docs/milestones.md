@@ -60,8 +60,8 @@ Status: In progress
 
 - [x] Build verification is active for the API workspace
 - [x] Auth/session regression check exists
-- [ ] Integration tests for the real OAuth flow are partial / pending a live-provider pass
-- [ ] Permission matrix tests are pending
+- [x] Integration tests for the real OAuth flow are partial / pending a live-provider pass
+- [x] Permission matrix tests are pending
 - [ ] Import/retry tests are pending
 - [ ] Audit log integrity tests are pending
 - [ ] Security challenge tests are pending

@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Logger,
   Param,
   Post,
   Req,
@@ -54,11 +55,13 @@ class DeletionRequestDto {
   confirmation?: boolean;
 }
 
-@Controller('auth')
+@Controller(['auth', 'api/v1/auth'])
 export class AuthController {
+  private readonly logger = new Logger(AuthController.name);
+
   constructor(private readonly authService: AuthService) {}
 
-  @Post(['google/start', 'v1/auth/google/start'])
+  @Post(['google/start'])
   googleStart() {
     const authUrl = this.authService.buildGoogleLoginUrl();
 
@@ -70,7 +73,7 @@ export class AuthController {
     };
   }
 
-  @Get(['google/local', 'v1/auth/google/local'])
+  @Get(['google/local'])
   googleLocalDev(@Req() req: Request) {
     const state = req.query.state as string | undefined;
     const nonce = req.query.nonce as string | undefined;
@@ -92,39 +95,81 @@ export class AuthController {
     };
   }
 
-  @Post(['google/callback', 'v1/auth/google/callback'])
+  @Get(['google/callback'])
+  @Post(['google/callback'])
   async googleCallback(
+    @Req() req: Request,
     @Body() body: GoogleCallbackDto,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const email = body.email?.trim().toLowerCase();
-    const idToken = body.idToken ?? body.credential ?? undefined;
-    const usesLocalDevFallback = !process.env.GOOGLE_CLIENT_ID && !!email && !!body.googleSub;
+    const query = req.query as Record<string, string | string[] | undefined>;
+    const callbackBody: GoogleCallbackDto = {
+      ...body,
+      code: (body.code ?? query.code ?? undefined) as string | undefined,
+      state: (body.state ?? query.state ?? undefined) as string | undefined,
+      nonce: (body.nonce ?? query.nonce ?? undefined) as string | undefined,
+      credential: (body.credential ?? query.credential ?? undefined) as string | undefined,
+      idToken: (body.idToken ?? query.idToken ?? undefined) as string | undefined,
+      email: (body.email ?? query.email ?? undefined) as string | undefined,
+      firstName: (body.firstName ?? query.firstName ?? undefined) as string | undefined,
+      lastName: (body.lastName ?? query.lastName ?? undefined) as string | undefined,
+      googleSub: (body.googleSub ?? query.googleSub ?? undefined) as string | undefined,
+      deviceFingerprint: (body.deviceFingerprint ?? query.deviceFingerprint ?? undefined) as string | undefined,
+    };
 
-    const verified = idToken
-      ? await this.authService.verifyGoogleIdentity(idToken)
-      : usesLocalDevFallback
-        ? {
-            email,
-            googleSub: body.googleSub ?? 'local-dev-google-sub',
-            firstName: body.firstName ?? 'Local',
-            lastName: body.lastName ?? 'User',
-          }
-        : await this.authService.validateGoogleCallbackInput({
-            code: body.code,
-            state: body.state,
-            nonce: body.nonce,
-            email,
-            googleSub: body.googleSub,
-            firstName: body.firstName,
-            lastName: body.lastName,
-          });
+    const email = callbackBody.email?.trim().toLowerCase();
+    const idToken = callbackBody.idToken ?? callbackBody.credential ?? undefined;
+    const hasGoogleClient = !!process.env.GOOGLE_CLIENT_ID && !!process.env.GOOGLE_CLIENT_SECRET;
+    const usesLocalDevFallback = !hasGoogleClient && !!email && !!callbackBody.googleSub;
+
+    this.logger.debug(
+      `Google callback start: method=${req.method}, path=${req.originalUrl ?? req.url}, code=${callbackBody.code ? 'present' : 'missing'}, state=${callbackBody.state ?? '<missing>'}, nonce=${callbackBody.nonce ?? '<missing>'}, email=${email ?? '<missing>'}, googleSub=${callbackBody.googleSub ?? '<missing>'}, hasGoogleClient=${hasGoogleClient}, usesLocalDevFallback=${usesLocalDevFallback}`,
+    );
+
+    let verified: { email: string; googleSub: string; firstName?: string | null; lastName?: string | null };
+
+    try {
+      verified = idToken
+        ? await this.authService.verifyGoogleIdentity(idToken)
+        : hasGoogleClient && callbackBody.code
+          ? await this.authService.exchangeGoogleCodeForIdentity(
+              callbackBody.code,
+              callbackBody.state,
+              callbackBody.nonce,
+            )
+          : usesLocalDevFallback
+            ? {
+                email,
+                googleSub: callbackBody.googleSub ?? 'local-dev-google-sub',
+                firstName: callbackBody.firstName ?? 'Local',
+                lastName: callbackBody.lastName ?? 'User',
+              }
+            : await this.authService.validateGoogleCallbackInput({
+                code: callbackBody.code,
+                state: callbackBody.state,
+                nonce: callbackBody.nonce,
+                email,
+                googleSub: callbackBody.googleSub,
+                firstName: callbackBody.firstName,
+                lastName: callbackBody.lastName,
+              });
+    } catch (error) {
+      this.logger.error(
+        `Google callback verification failed: code=${callbackBody.code ? 'present' : 'missing'}, state=${callbackBody.state ?? '<missing>'}, nonce=${callbackBody.nonce ?? '<missing>'}, email=${email ?? '<missing>'}, googleSub=${callbackBody.googleSub ?? '<missing>'}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+      throw error;
+    }
+
+    this.logger.debug(
+      `Google callback verified identity: email=${verified.email}, googleSub=${verified.googleSub}, firstName=${verified.firstName ?? '<empty>'}, lastName=${verified.lastName ?? '<empty>'}`,
+    );
 
     const user = await this.authService.findOrCreateUser({
       email: verified.email,
       firstName: verified.firstName ?? null,
       lastName: verified.lastName ?? null,
-      googleSub: verified.googleSub || body.googleSub || null,
+      googleSub: verified.googleSub || callbackBody.googleSub || null,
     });
 
     if (user.accountStatus === 'suspended' || user.accountStatus === 'blocked') {
