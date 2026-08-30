@@ -8,6 +8,7 @@ import { AuthService } from './auth.service';
 import { AuditLogEntry } from './entities/audit-log-entry.entity';
 import { AuthAttempt } from './entities/auth-attempt.entity';
 import { Challenge } from './entities/challenge.entity';
+import { DeletionRequest } from './entities/deletion-request.entity';
 import { PendingReviewItem } from './entities/pending-review-item.entity';
 import { RoleAssignmentRule } from './entities/role-assignment-rule.entity';
 import { Session } from './entities/session.entity';
@@ -26,6 +27,7 @@ import { RolesGuard } from './roles.guard';
       Challenge,
       RoleAssignmentRule,
       PendingReviewItem,
+      DeletionRequest,
       AuditLogEntry,
       SystemConfig,
     ]),

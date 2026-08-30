@@ -41,6 +41,13 @@ describe('AuthService challenge flow', () => {
     save: jest.fn(),
   };
 
+  const deletionRequestRepository: any = {
+    findOne: jest.fn(),
+    find: jest.fn(),
+    create: jest.fn(),
+    save: jest.fn(),
+  };
+
   const authService = new AuthService(
     userRepository as any,
     sessionRepository as any,
@@ -48,6 +55,8 @@ describe('AuthService challenge flow', () => {
     challengeRepository as any,
     pendingReviewRepository as any,
     auditLogRepository as any,
+    undefined as any,
+    deletionRequestRepository as any,
   );
 
   it('issues a challenge and verifies it without exposing the stored secret', async () => {
@@ -186,5 +195,95 @@ describe('AuthService challenge flow', () => {
         delete process.env.GOOGLE_CLIENT_ID;
       }
     }
+  });
+
+  it('creates a deletion request and marks the user as pending for removal', async () => {
+    const user = {
+      id: 'user-123',
+      accountStatus: 'active',
+      deletionRequestedAt: null,
+    };
+
+    userRepository.findOne.mockResolvedValueOnce(user);
+    deletionRequestRepository.findOne.mockResolvedValueOnce(null);
+    deletionRequestRepository.create.mockReturnValue({ userId: user.id, status: 'pending' });
+    deletionRequestRepository.save.mockImplementation(async (value) => ({
+      id: 'delete-1',
+      ...value,
+      requestedAt: new Date(),
+    }));
+    userRepository.save.mockImplementation(async (value) => ({ ...value }));
+
+    const request = await authService.requestDeletion(user.id, 'I want to remove my account', true);
+
+    expect(request.status).toBe('pending');
+    expect(user.accountStatus).toBe('deletion_pending');
+    expect(user.deletionRequestedAt).toBeTruthy();
+  });
+
+  it('blocks a second active deletion request and allows legal-hold placement', async () => {
+    const user = {
+      id: 'user-456',
+      accountStatus: 'active',
+      deletionRequestedAt: new Date(),
+    };
+
+    userRepository.findOne.mockResolvedValueOnce(user);
+    deletionRequestRepository.findOne.mockResolvedValueOnce({ id: 'existing-1', status: 'pending' });
+
+    await expect(authService.requestDeletion(user.id, 'duplicate', true)).rejects.toThrow(
+      'A deletion request is already active',
+    );
+
+    deletionRequestRepository.findOne.mockResolvedValueOnce({ id: 'delete-2', status: 'pending' });
+    deletionRequestRepository.save.mockResolvedValue({
+      id: 'delete-2',
+      status: 'pending',
+      legalHoldReason: 'review required',
+      legalHoldUntil: new Date(Date.now() + 86400000),
+    });
+
+    const hold = await authService.setLegalHold('delete-2', true, 'review required', new Date(Date.now() + 86400000));
+
+    expect(hold.legalHoldReason).toBe('review required');
+  });
+
+  it('processes a deletion request idempotently and anonymizes the user', async () => {
+    const user = {
+      id: 'user-789',
+      googleSubjectId: 'google-sub-789',
+      email: 'student@std.neu.edu.tr',
+      fullName: 'Student User',
+      username: 'studentuser',
+      studentOrStaffId: '20240001',
+      department: 'CS',
+      accountStatus: 'deletion_pending',
+      deletionRequestedAt: new Date(),
+      role: 'student',
+    };
+
+    const request = {
+      id: 'delete-789',
+      userId: user.id,
+      status: 'pending',
+      legalHoldReason: null,
+      legalHoldUntil: null,
+    };
+
+    userRepository.findOne.mockResolvedValue(user);
+    deletionRequestRepository.findOne.mockResolvedValue(request);
+    deletionRequestRepository.save.mockImplementation(async (value) => ({ ...request, ...value }));
+    sessionRepository.update.mockResolvedValue({});
+    pendingReviewRepository.find.mockResolvedValue([]);
+    userRepository.save.mockImplementation(async (value) => ({ ...value }));
+
+    const processed = await authService.processDeletionRequest('delete-789');
+
+    expect(processed.status).toBe('completed');
+    expect(user.googleSubjectId).toMatch(/^deleted:/);
+    expect(user.email).toBeNull();
+    expect(user.fullName).toBeNull();
+    expect(user.deletionRequestedAt).toBeNull();
+    expect(sessionRepository.update).toHaveBeenCalled();
   });
 });

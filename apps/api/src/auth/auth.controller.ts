@@ -46,6 +46,11 @@ class ChallengeVerifyDto {
   purpose?: string;
 }
 
+class DeletionRequestDto {
+  reason?: string;
+  confirmation?: boolean;
+}
+
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
@@ -184,6 +189,50 @@ export class AuthController {
       ok: true,
       verified: result.verified,
       challengeId: result.challengeId,
+    };
+  }
+
+  @UseGuards(AuthGuard)
+  @Post('account/deletion')
+  async requestAccountDeletion(
+    @Req() req: Request & { user?: { id: string; sessionId?: string; role?: string } },
+    @Body() body: DeletionRequestDto,
+  ) {
+    const request = await this.authService.requestDeletion(
+      req.user!.id,
+      body.reason,
+      body.confirmation === true,
+    );
+
+    return {
+      ok: true,
+      request,
+    };
+  }
+
+  @UseGuards(AuthGuard)
+  @Get('account/deletion')
+  async getAccountDeletionStatus(
+    @Req() req: Request & { user?: { id: string; sessionId?: string; role?: string } },
+  ) {
+    const request = await this.authService.getDeletionStatusForUser(req.user!.id);
+
+    return {
+      ok: true,
+      request,
+    };
+  }
+
+  @UseGuards(AuthGuard)
+  @Post('account/deletion/cancel')
+  async cancelAccountDeletion(
+    @Req() req: Request & { user?: { id: string; sessionId?: string; role?: string } },
+  ) {
+    const request = await this.authService.cancelDeletionRequest(req.user!.id);
+
+    return {
+      ok: true,
+      request,
     };
   }
 

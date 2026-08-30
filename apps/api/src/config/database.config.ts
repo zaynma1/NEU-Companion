@@ -6,6 +6,7 @@ import { ImportRowError } from '../admin/entities/import-row-error.entity';
 import { AuditLogEntry } from '../auth/entities/audit-log-entry.entity';
 import { AuthAttempt } from '../auth/entities/auth-attempt.entity';
 import { Challenge } from '../auth/entities/challenge.entity';
+import { DeletionRequest } from '../auth/entities/deletion-request.entity';
 import { PendingReviewItem } from '../auth/entities/pending-review-item.entity';
 import { RoleAssignmentRule } from '../auth/entities/role-assignment-rule.entity';
 import { Session } from '../auth/entities/session.entity';
@@ -37,6 +38,7 @@ const appEntities = [
   Challenge,
   RoleAssignmentRule,
   PendingReviewItem,
+  DeletionRequest,
   AuditLogEntry,
   SystemConfig,
   Course,

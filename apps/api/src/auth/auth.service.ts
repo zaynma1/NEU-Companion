@@ -6,6 +6,7 @@ import { IsNull, Repository } from 'typeorm';
 import { AuditLogEntry } from './entities/audit-log-entry.entity';
 import { AuthAttempt } from './entities/auth-attempt.entity';
 import { Challenge } from './entities/challenge.entity';
+import { DeletionRequest } from './entities/deletion-request.entity';
 import { PendingReviewItem } from './entities/pending-review-item.entity';
 import { Session } from './entities/session.entity';
 import { SystemConfig } from './entities/system-config.entity';
@@ -52,6 +53,8 @@ export class AuthService {
     private readonly auditLogRepository: Repository<AuditLogEntry> = null as any,
     @InjectRepository(SystemConfig)
     private readonly systemConfigRepository: Repository<SystemConfig> = null as any,
+    @InjectRepository(DeletionRequest)
+    private readonly deletionRequestRepository: Repository<DeletionRequest> = null as any,
   ) {}
 
   async findOrCreateUser(input: {
@@ -288,6 +291,150 @@ export class AuthService {
         revokedReason: 'logout_all',
       },
     );
+  }
+
+  async requestDeletion(userId: string, reason?: string, confirmation = false): Promise<DeletionRequest> {
+    if (!confirmation) {
+      throw new UnauthorizedException('Deletion confirmation is required');
+    }
+
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    const activeRequest = await this.deletionRequestRepository.findOne({
+      where: { userId, status: 'pending' },
+    });
+
+    if (activeRequest) {
+      throw new UnauthorizedException('A deletion request is already active');
+    }
+
+    const existingProcessing = await this.deletionRequestRepository.findOne({
+      where: { userId, status: 'processing' },
+    });
+
+    if (existingProcessing) {
+      throw new UnauthorizedException('A deletion request is already being processed');
+    }
+
+    user.accountStatus = 'deletion_pending';
+    user.deletionRequestedAt = new Date();
+    await this.userRepository.save(user);
+
+    const deletionRequest = this.deletionRequestRepository.create({
+      userId,
+      status: 'pending',
+      reason: reason ?? null,
+      confirmation,
+      requestedAt: user.deletionRequestedAt,
+      completedAt: null,
+      cancelledAt: null,
+    });
+
+    return this.deletionRequestRepository.save(deletionRequest);
+  }
+
+  async getDeletionStatusForUser(userId: string): Promise<DeletionRequest | null> {
+    return this.deletionRequestRepository.findOne({
+      where: { userId },
+      order: { requestedAt: 'DESC' },
+    });
+  }
+
+  async cancelDeletionRequest(userId: string): Promise<DeletionRequest> {
+    const request = await this.deletionRequestRepository.findOne({
+      where: { userId, status: 'pending' },
+      order: { requestedAt: 'DESC' },
+    });
+
+    if (!request) {
+      throw new UnauthorizedException('No active pending deletion request exists');
+    }
+
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (user) {
+      user.accountStatus = 'active';
+      user.deletionRequestedAt = null;
+      await this.userRepository.save(user);
+    }
+
+    request.status = 'cancelled';
+    request.cancelledAt = new Date();
+    request.completedAt = null;
+    return this.deletionRequestRepository.save(request);
+  }
+
+  async listDeletionRequests(): Promise<DeletionRequest[]> {
+    return this.deletionRequestRepository.find({
+      order: { requestedAt: 'DESC' },
+    });
+  }
+
+  async processDeletionRequest(requestId: string): Promise<DeletionRequest> {
+    const request = await this.deletionRequestRepository.findOne({ where: { id: requestId } });
+    if (!request) {
+      throw new UnauthorizedException('Deletion request not found');
+    }
+
+    if (request.status === 'completed') {
+      return request;
+    }
+
+    if (request.status === 'cancelled') {
+      throw new UnauthorizedException('Cancelled deletion requests cannot be processed');
+    }
+
+    if (request.legalHoldReason) {
+      throw new UnauthorizedException('Deletion processing is blocked by a legal hold');
+    }
+
+    const user = await this.userRepository.findOne({ where: { id: request.userId } });
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    if (user.isSystemPlaceholder) {
+      request.status = 'completed';
+      request.completedAt = new Date();
+      return this.deletionRequestRepository.save(request);
+    }
+
+    await this.revokeAllSessionsForUser(user.id);
+
+    user.googleSubjectId = `deleted:${user.id}`;
+    user.email = null;
+    user.fullName = null;
+    user.username = null;
+    user.studentOrStaffId = null;
+    user.department = null;
+    user.accountStatus = 'deletion_pending';
+    user.deletionRequestedAt = null;
+    user.role = 'pending';
+    await this.userRepository.save(user);
+
+    request.status = 'completed';
+    request.completedAt = new Date();
+    request.cancelledAt = null;
+    return this.deletionRequestRepository.save(request);
+  }
+
+  async setLegalHold(
+    requestId: string,
+    hold: boolean,
+    reason?: string,
+    legalHoldUntil?: Date | null,
+  ): Promise<DeletionRequest> {
+    const request = await this.deletionRequestRepository.findOne({ where: { id: requestId } });
+    if (!request) {
+      throw new UnauthorizedException('Deletion request not found');
+    }
+
+    request.legalHoldReason = hold ? reason ?? 'admin_review' : null;
+    request.legalHoldUntil = hold ? (legalHoldUntil ?? null) : null;
+
+    return this.deletionRequestRepository.save(request);
   }
 
   async ensureAllowedDomain(email: string): Promise<boolean> {

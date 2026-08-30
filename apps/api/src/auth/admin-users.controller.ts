@@ -33,6 +33,12 @@ class UpdateSystemConfigDto {
   value!: string;
 }
 
+class LegalHoldDto {
+  hold?: boolean;
+  reason?: string;
+  until?: string;
+}
+
 @Controller('admin')
 export class AdminUsersController {
   constructor(private readonly authService: AuthService) {}
@@ -60,6 +66,39 @@ export class AdminUsersController {
       ok: true,
       items: results.items,
       nextCursor: results.nextCursor ?? null,
+    };
+  }
+
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles('admin')
+  @Get('deletion-requests')
+  async listDeletionRequests() {
+    const requests = await this.authService.listDeletionRequests();
+
+    return {
+      ok: true,
+      items: requests,
+    };
+  }
+
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles('admin')
+  @Post('deletion-requests/:requestId/legal-hold')
+  async setDeletionLegalHold(
+    @Param('requestId') requestId: string,
+    @Body() body: LegalHoldDto,
+  ) {
+    const legalHoldUntil = body.until ? new Date(body.until) : null;
+    const request = await this.authService.setLegalHold(
+      requestId,
+      body.hold === true,
+      body.reason,
+      legalHoldUntil,
+    );
+
+    return {
+      ok: true,
+      request,
     };
   }
 
