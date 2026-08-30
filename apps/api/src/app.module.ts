@@ -10,6 +10,7 @@ import { TimetableModule } from './timetable/timetable.module';
 import { AdminModule } from './admin/admin.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { FaqModule } from './faq/faq.module';
+import { ProfileModule } from './profile/profile.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { FaqModule } from './faq/faq.module';
     AdminModule,
     NotificationsModule,
     FaqModule,
+    ProfileModule,
   ],
   controllers: [AppController],
   providers: [],

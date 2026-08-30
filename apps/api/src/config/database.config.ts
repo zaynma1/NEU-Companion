@@ -30,6 +30,10 @@ import { NotificationPreference } from '../notifications/entities/notification-p
 import { Notification } from '../notifications/entities/notification.entity';
 import { OfficialEvent } from '../timetable/entities/official-event.entity';
 import { PersonalEvent } from '../timetable/entities/personal-event.entity';
+import { ContactMethod } from '../profile/entities/contact-method.entity';
+import { Profile } from '../profile/entities/profile.entity';
+import { ProfessorScheduleDocument } from '../profile/entities/professor-schedule-document.entity';
+import { VisibilitySetting } from '../profile/entities/visibility-setting.entity';
 
 const appEntities = [
   User,
@@ -59,6 +63,10 @@ const appEntities = [
   QuestionVote,
   AnswerVote,
   Report,
+  Profile,
+  ContactMethod,
+  VisibilitySetting,
+  ProfessorScheduleDocument,
   ImportBatch,
   ImportRowError,
   DatasetVersion,
