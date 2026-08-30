@@ -9,13 +9,12 @@ import { Answer } from './entities/answer.entity';
 import { QuestionVote } from './entities/question-vote.entity';
 import { AnswerVote } from './entities/answer-vote.entity';
 import { Report } from './entities/report.entity';
-import { User } from '../auth/entities/user.entity';
-import { AuthGuard } from '../auth/auth.guard';
-import { AuthService } from '../auth/auth.service';
+import { AuthModule } from '../auth/auth.module';
 import { RolesGuard } from '../auth/roles.guard';
 
 @Module({
   imports: [
+    AuthModule,
     TypeOrmModule.forFeature([
       CategoryTag,
       Question,
@@ -24,11 +23,10 @@ import { RolesGuard } from '../auth/roles.guard';
       QuestionVote,
       AnswerVote,
       Report,
-      User,
     ]),
   ],
   controllers: [FaqController],
-  providers: [FaqService, AuthGuard, AuthService, RolesGuard],
+  providers: [FaqService, RolesGuard],
   exports: [FaqService],
 })
 export class FaqModule {}
