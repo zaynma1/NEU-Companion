@@ -7,9 +7,12 @@ import {
   Req,
   Res,
   UnauthorizedException,
+  UseGuards,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
+import { AuthGuard } from './auth.guard';
 import { AuthService } from './auth.service';
+
 
 class SignInDto {
   email!: string;

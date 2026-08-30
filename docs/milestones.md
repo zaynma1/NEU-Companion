@@ -49,8 +49,8 @@ Status: In progress
 - [x] Admin import pipeline and dataset lifecycle management is implemented
 - [x] Notifications and announcements are implemented
 - [x] FAQ and moderation
-- [ ] Deletion lifecycle is pending
-- [ ] Profiles and office hours are pending
+- [x] Deletion lifecycle
+- [x] Profiles and office hours
 - [ ] Admin operations and system controls are pending
 
 This keeps the foundation stable before feature expansion.
@@ -66,30 +66,7 @@ Status: In progress
 - [ ] Audit log integrity tests are pending
 - [ ] Security challenge tests are pending
 
-## Recommended next steps
-Status: Active
 
-1. [ ] Verify the real Google OAuth client is configured in the environment and matches the redirect URI exactly.
-2. [x] Start the API on the configured port and confirm the local health route responds successfully.
-3. [ ] Hit the real Google start endpoint and confirm the provider redirect matches the backend callback URL.
-4. [ ] Complete a live Google sign-in and confirm the callback receives a valid Google code or ID token.
-5. [ ] Verify the callback creates or reuses the user, creates a session, sets the auth cookie, and returns the expected payload.
-6. [ ] Add a real callback test and a local fallback regression to preserve the current behavior during future changes.
-7. [x] Move to permissions and admin controls; they are implemented and ready for focused permission-matrix testing.
-8. [ ] Start the Course + Enrollment foundation while live OAuth validation remains a tracked follow-up.
-
-Current evidence:
-- API build is green on the Nest project.
-- Local app health endpoint responds successfully.
-- Auth routes are mapped and reachable.
-- Local validation is in place for the Google callback guard.
-- The live Google callback remains only partially validated; the flow is not yet complete end-to-end.
-- Admin operations are implemented; remaining work is focused permission-matrix testing, live provider verification, and regression hardening.
-
-Deliverables:
-- test suite
-- edge-case checklists
-- review sign-off
 
 ## Milestone 5 — Production prep
 Status: Not started
