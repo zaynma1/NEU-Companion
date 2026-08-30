@@ -6,7 +6,7 @@ export class NotificationPreference {
   @PrimaryGeneratedColumn('uuid')
   userId!: string;
 
-  @ManyToOne('User', { primary: true, onDelete: 'CASCADE' })
+  @ManyToOne('User', (user: User) => user.notificationPreferences, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
   user!: User;
 

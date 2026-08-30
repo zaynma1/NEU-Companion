@@ -6,7 +6,7 @@ import { OfficialEvent } from './entities/official-event.entity';
 import { Enrollment } from '../courses/entities/enrollment.entity';
 import { CreatePersonalEventDto, UpdatePersonalEventDto, CheckConflictsDto } from './dtos/timetable.dto';
 
-interface ConflictResult {
+export interface ConflictResult {
   severity: 'hard' | 'soft';
   eventId: string;
   sourceType: 'official';
@@ -48,7 +48,7 @@ export class TimetableService {
         status: 'active',
         ...(courseGroupId && { courseGroupId }),
       },
-      relations: ['courseGroup'],
+      relations: { courseGroup: true },
     });
 
     const groupIds = enrollments.map((e) => e.courseGroupId);
@@ -239,7 +239,7 @@ export class TimetableService {
         studentId: userId,
         status: 'active',
       },
-      relations: ['courseGroup'],
+      relations: { courseGroup: true },
     });
 
     const groupIds = enrollments.map((e) => e.courseGroupId);

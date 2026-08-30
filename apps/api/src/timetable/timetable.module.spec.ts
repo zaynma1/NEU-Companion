@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
 import { TimetableService } from './timetable.service';
 import { TimetableController } from './timetable.controller';

@@ -116,12 +116,12 @@ export class TimetableController {
 
     if (dto.startDatetime || dto.endDatetime) {
       const conflicts = await this.timetableService.checkConflicts(user.id, {
-        startDatetime: dto.startDatetime || updatedEvent.startDatetime.toISOString(),
-        endDatetime: dto.endDatetime || updatedEvent.endDatetime.toISOString(),
-        recurrenceRule: dto.recurrenceRule || updatedEvent.recurrenceRule,
-        recurrenceEndDate: dto.recurrenceEndDate || updatedEvent.recurrenceEndDate?.toISOString(),
-        title: dto.title || updatedEvent.title,
-        location: dto.location || updatedEvent.location,
+        startDatetime: dto.startDatetime ?? updatedEvent.startDatetime.toISOString(),
+        endDatetime: dto.endDatetime ?? updatedEvent.endDatetime.toISOString(),
+        recurrenceRule: dto.recurrenceRule ?? updatedEvent.recurrenceRule ?? undefined,
+        recurrenceEndDate: dto.recurrenceEndDate ?? updatedEvent.recurrenceEndDate?.toISOString() ?? undefined,
+        title: dto.title ?? updatedEvent.title,
+        location: dto.location ?? updatedEvent.location ?? undefined,
       });
 
       return {

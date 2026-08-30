@@ -12,6 +12,19 @@ import {
   Request,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+
+type UploadedFile = {
+  fieldname: string;
+  originalname: string;
+  encoding: string;
+  mimetype: string;
+  size: number;
+  stream: NodeJS.ReadableStream;
+  destination: string;
+  filename: string;
+  path: string;
+  buffer: Buffer;
+};
 import { AdminImportService } from './admin-import.service';
 import { AuthGuard } from '../auth/auth.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -27,7 +40,7 @@ export class AdminImportController {
   @Post('imports')
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 50 * 1024 * 1024 } }))
   async uploadImport(
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFile() file: UploadedFile,
     @Body() body: any,
     @Request() req: any,
   ) {
@@ -234,7 +247,7 @@ export class AdminImportController {
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 50 * 1024 * 1024 } }))
   async retryImport(
     @Param('batchId') batchId: string,
-    @UploadedFile() file: Express.Multer.File | undefined,
+    @UploadedFile() file: UploadedFile | undefined,
     @Body() dto: RetryImportDto,
     @Request() req: any,
   ) {

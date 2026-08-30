@@ -2,13 +2,13 @@ import { Injectable, BadRequestException, NotFoundException, ForbiddenException,
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import * as crypto from 'crypto';
-import { ImportBatch } from '../entities/import-batch.entity';
-import { ImportRowError } from '../entities/import-row-error.entity';
-import { DatasetVersion } from '../entities/dataset-version.entity';
-import { OfficialEvent } from '../../timetable/entities/official-event.entity';
-import { Course } from '../../courses/entities/course.entity';
-import { CourseGroup } from '../../courses/entities/course-group.entity';
-import { ApplyImportDto, RollbackImportDto } from '../dtos/import.dto';
+import { ImportBatch } from './entities/import-batch.entity';
+import { ImportRowError } from './entities/import-row-error.entity';
+import { DatasetVersion } from './entities/dataset-version.entity';
+import { OfficialEvent } from '../timetable/entities/official-event.entity';
+import { Course } from '../courses/entities/course.entity';
+import { CourseGroup } from '../courses/entities/course-group.entity';
+import { ApplyImportDto, RollbackImportDto } from './dtos/import.dto';
 
 interface ImportValidationResult {
   isValid: boolean;
@@ -16,7 +16,7 @@ interface ImportValidationResult {
   rowCount: number;
 }
 
-interface ImportDiff {
+export interface ImportDiff {
   addCount: number;
   updateCount: number;
   removeCount: number;
@@ -136,7 +136,7 @@ export class AdminImportService {
   async getImportBatch(batchId: string): Promise<ImportBatch> {
     const batch = await this.importBatchRepository.findOne({
       where: { id: batchId },
-      relations: ['uploadedBy', 'rowErrors'],
+      relations: { uploadedBy: true, rowErrors: true },
     });
 
     if (!batch) {
@@ -243,7 +243,7 @@ export class AdminImportService {
   async applyImport(batchId: string, userId: string, dto: ApplyImportDto): Promise<DatasetVersion> {
     const batch = await this.importBatchRepository.findOne({
       where: { id: batchId },
-      relations: ['rowErrors'],
+      relations: { rowErrors: true },
     });
 
     if (!batch) {
@@ -387,7 +387,7 @@ export class AdminImportService {
   async getCurrentDataset(term: string): Promise<DatasetVersion> {
     const version = await this.datasetVersionRepository.findOne({
       where: { term, isCurrent: true },
-      relations: ['importBatch'],
+      relations: { importBatch: true },
     });
 
     if (!version) {

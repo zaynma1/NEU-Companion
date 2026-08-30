@@ -1,4 +1,4 @@
-import { jest } from '@jest/globals';
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { FaqService } from './faq.service';
@@ -22,8 +22,8 @@ describe('FaqService', () => {
 
   beforeEach(async () => {
     questionRepository = {
-      create: jest.fn((dto) => dto),
-      save: jest.fn(async (dto) => ({ id: 'question-1', ...dto })),
+      create: jest.fn((dto: any) => dto),
+      save: jest.fn(async (dto: any) => ({ id: 'question-1', ...dto })),
       findOne: jest.fn(),
       find: jest.fn(),
       count: jest.fn(),
@@ -31,8 +31,8 @@ describe('FaqService', () => {
     };
 
     answerRepository = {
-      create: jest.fn((dto) => dto),
-      save: jest.fn(async (dto) => ({ id: 'answer-1', ...dto })),
+      create: jest.fn((dto: any) => dto),
+      save: jest.fn(async (dto: any) => ({ id: 'answer-1', ...dto })),
       findOne: jest.fn(),
       find: jest.fn(),
       count: jest.fn(),
@@ -42,29 +42,29 @@ describe('FaqService', () => {
     tagRepository = {
       find: jest.fn(),
       findOne: jest.fn(),
-      create: jest.fn((dto) => dto),
-      save: jest.fn(async (dto) => dto),
+      create: jest.fn((dto: any) => dto),
+      save: jest.fn(async (dto: any) => dto),
     };
 
     questionVoteRepository = {
       findOne: jest.fn(),
-      create: jest.fn((dto) => dto),
-      save: jest.fn(async (dto) => dto),
+      create: jest.fn((dto: any) => dto),
+      save: jest.fn(async (dto: any) => dto),
       remove: jest.fn(),
       count: jest.fn(),
     };
 
     answerVoteRepository = {
       findOne: jest.fn(),
-      create: jest.fn((dto) => dto),
-      save: jest.fn(async (dto) => dto),
+      create: jest.fn((dto: any) => dto),
+      save: jest.fn(async (dto: any) => dto),
       remove: jest.fn(),
       count: jest.fn(),
     };
 
     reportRepository = {
-      create: jest.fn((dto) => dto),
-      save: jest.fn(async (dto) => ({ id: 'report-1', ...dto })),
+      create: jest.fn((dto: any) => dto),
+      save: jest.fn(async (dto: any) => ({ id: 'report-1', ...dto })),
       find: jest.fn(),
       findOne: jest.fn(),
       update: jest.fn(),

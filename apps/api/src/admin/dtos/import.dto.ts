@@ -1,5 +1,18 @@
 import { IsString, IsOptional, IsUUID, IsBoolean } from 'class-validator';
 
+type UploadedFile = {
+  fieldname: string;
+  originalname: string;
+  encoding: string;
+  mimetype: string;
+  size: number;
+  stream: NodeJS.ReadableStream;
+  destination: string;
+  filename: string;
+  path: string;
+  buffer: Buffer;
+};
+
 export class UploadImportDto {
   @IsString()
   term!: string;
@@ -12,7 +25,7 @@ export class UploadImportDto {
   notes?: string;
 
   // file will be handled by multer middleware
-  file?: Express.Multer.File;
+  file?: UploadedFile;
 }
 
 export class ApplyImportDto {
@@ -43,7 +56,7 @@ export class RetryImportDto {
   notes?: string;
 
   // file will be handled by multer middleware if provided
-  file?: Express.Multer.File;
+  file?: UploadedFile;
 }
 
 export class ListImportsQueryDto {

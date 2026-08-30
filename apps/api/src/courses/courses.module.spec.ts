@@ -1,3 +1,4 @@
+import { describe, expect, it } from '@jest/globals';
 import { Course } from './entities/course.entity';
 import { CourseGroup } from './entities/course-group.entity';
 import { Enrollment } from './entities/enrollment.entity';

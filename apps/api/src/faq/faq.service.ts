@@ -86,7 +86,7 @@ export class FaqService {
   async getQuestionDetail(questionId: string): Promise<Question> {
     const question = await this.questionRepository.findOne({
       where: { id: questionId },
-      relations: ['author', 'tags', 'answers', 'answers.author'],
+      relations: { author: true, tags: true, answers: { author: true } },
     });
 
     if (!question) {
@@ -189,7 +189,7 @@ export class FaqService {
   }
 
   async acceptAnswer(answerId: string, actorId: string, actorRole?: string): Promise<Answer> {
-    const answer = await this.answerRepository.findOne({ where: { id: answerId }, relations: ['question'] });
+    const answer = await this.answerRepository.findOne({ where: { id: answerId }, relations: { question: true } });
     if (!answer) throw new NotFoundException('Answer not found');
 
     const existingAccepted = await this.answerRepository.findOne({
@@ -211,7 +211,7 @@ export class FaqService {
   }
 
   async unacceptAnswer(answerId: string, actorId: string, actorRole?: string): Promise<Answer> {
-    const answer = await this.answerRepository.findOne({ where: { id: answerId }, relations: ['question'] });
+    const answer = await this.answerRepository.findOne({ where: { id: answerId }, relations: { question: true } });
     if (!answer) throw new NotFoundException('Answer not found');
 
     const question = await this.questionRepository.findOne({ where: { id: answer.questionId } });
@@ -302,7 +302,7 @@ export class FaqService {
     return this.answerRepository.save(answer);
   }
 
-  private async validateTags(tags: string[]): Promise<QuestionTag[]> {
+  private async validateTags(tags: string[]): Promise<CategoryTag[]> {
     if (!tags || tags.length === 0) {
       return [];
     }
@@ -316,6 +316,6 @@ export class FaqService {
       throw new BadRequestException('faq.invalid_tag');
     }
 
-    return selected.map((label) => ({ label } as QuestionTag));
+    return selected.map((label) => allowed.get(label)!).filter(Boolean);
   }
 }

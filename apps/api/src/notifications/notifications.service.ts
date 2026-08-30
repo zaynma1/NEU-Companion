@@ -78,7 +78,7 @@ export class NotificationService {
   async getMutedCourses(userId: string): Promise<MutedCourse[]> {
     return this.mutedCourseRepository.find({
       where: { userId },
-      relations: ['course'],
+      relations: { course: true },
     });
   }
 
@@ -219,7 +219,7 @@ export class NotificationService {
     // Verify course group exists and belongs to the specified course
     const courseGroup = await this.courseGroupRepository.findOne({
       where: { id: dto.courseGroupId },
-      relations: ['course'],
+      relations: { course: true },
     });
 
     if (!courseGroup || courseGroup.courseId !== dto.courseId) {
@@ -247,7 +247,7 @@ export class NotificationService {
   async getAnnouncementDetail(announcementId: string, userId: string): Promise<Announcement> {
     const announcement = await this.announcementRepository.findOne({
       where: { id: announcementId },
-      relations: ['course', 'courseGroup', 'professor'],
+      relations: { course: true, courseGroup: true, professor: true },
     });
 
     if (!announcement) {

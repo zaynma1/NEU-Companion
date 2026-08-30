@@ -15,6 +15,7 @@ import type { Answer } from '../../faq/entities/answer.entity';
 import type { QuestionVote } from '../../faq/entities/question-vote.entity';
 import type { AnswerVote } from '../../faq/entities/answer-vote.entity';
 import type { Report } from '../../faq/entities/report.entity';
+import type { NotificationPreference } from '../../notifications/entities/notification-preference.entity';
 
 @Entity('users')
 export class User {
@@ -71,6 +72,9 @@ export class User {
 
   @OneToMany('Notification', (notification: Notification) => notification.recipient)
   notifications!: Notification[];
+
+  @OneToMany('NotificationPreference', (preference: NotificationPreference) => preference.user)
+  notificationPreferences!: NotificationPreference[];
 
   @OneToMany('Announcement', (announcement: Announcement) => announcement.professor)
   announcements!: Announcement[];

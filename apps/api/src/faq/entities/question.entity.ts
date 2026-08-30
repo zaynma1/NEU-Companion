@@ -11,6 +11,7 @@ import {
 } from 'typeorm';
 import type { User } from '../../auth/entities/user.entity';
 import type { Answer } from './answer.entity';
+import type { CategoryTag } from './category-tag.entity';
 import type { QuestionTag } from './question-tag.entity';
 
 @Entity('questions')
@@ -59,4 +60,7 @@ export class Question {
 
   @OneToMany('Answer', (answer: Answer) => answer.question)
   answers!: Answer[];
+
+  @OneToMany('QuestionVote', (vote: any) => vote.question)
+  votes!: any[];
 }

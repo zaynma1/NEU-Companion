@@ -1,4 +1,4 @@
-import { jest } from '@jest/globals';
+import { describe, expect, it, jest } from '@jest/globals';
 import { Reflector } from '@nestjs/core';
 import { ExecutionContext, UnauthorizedException } from '@nestjs/common';
 import { AuthGuard } from './auth.guard';
@@ -6,23 +6,26 @@ import { RolesGuard } from './roles.guard';
 
 describe('AuthGuard', () => {
   it('accepts a valid signed-in session cookie and attaches the user identity', async () => {
-    const authService = {
-      validateSessionToken: jest.fn().mockResolvedValue({
-        id: 'session-123',
-        userId: 'user-123',
-        user: {
-          id: 'user-123',
-          email: 'a@std.neu.edu.tr',
-          role: 'admin',
-          accountStatus: 'active',
-        },
-      }),
+    const validateSessionToken = jest.fn<() => Promise<any>>();
+    validateSessionToken.mockResolvedValue({
+      id: 'session-123',
+      userId: 'user-123',
+      user: {
+        id: 'user-123',
+        email: 'a@std.neu.edu.tr',
+        role: 'admin',
+        accountStatus: 'active',
+      },
+    });
+
+    const authService: any = {
+      validateSessionToken,
     };
 
     const guard = new AuthGuard(authService as any);
-    const req = { cookies: { neu_companion_session: 'token-123' } };
+    const req: any = { cookies: { neu_companion_session: 'token-123' } };
 
-    const context = {
+    const context: any = {
       switchToHttp: () => ({
         getRequest: () => req,
       }),
@@ -33,11 +36,11 @@ describe('AuthGuard', () => {
   });
 
   it('rejects a missing session cookie', async () => {
-    const authService = { validateSessionToken: jest.fn() };
+    const authService: any = { validateSessionToken: jest.fn() };
     const guard = new AuthGuard(authService as any);
-    const req = { cookies: {} };
+    const req: any = { cookies: {} };
 
-    const context = {
+    const context: any = {
       switchToHttp: () => ({
         getRequest: () => req,
       }),
@@ -60,8 +63,8 @@ describe('RolesGuard', () => {
 
     Reflect.defineMetadata('roles', ['admin'], ExampleController.prototype.adminOnly);
 
-    const req = { user: { role: 'admin' } };
-    const context = {
+    const req: any = { user: { role: 'admin' } };
+    const context: any = {
       getHandler: () => ExampleController.prototype.adminOnly,
       getClass: () => ExampleController,
       switchToHttp: () => ({ getRequest: () => req }),
@@ -82,8 +85,8 @@ describe('RolesGuard', () => {
 
     Reflect.defineMetadata('roles', ['admin'], ExampleController.prototype.adminOnly);
 
-    const req = { user: { role: 'student' } };
-    const context = {
+    const req: any = { user: { role: 'student' } };
+    const context: any = {
       getHandler: () => ExampleController.prototype.adminOnly,
       getClass: () => ExampleController,
       switchToHttp: () => ({ getRequest: () => req }),

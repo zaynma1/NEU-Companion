@@ -1,6 +1,6 @@
 # NEU Companion Implementation Plan
 
-This plan tracks the actual engineering work for the NEWFI platform after the design and requirements pass. It is intentionally operational and status-based so the project can be executed in milestones.
+This plan tracks the actual engineering work for the NEU Companion platform after the design and requirements pass. It is intentionally operational and status-based so the project can be executed in milestones.
 
 ## Status legend
 - [ ] Not started

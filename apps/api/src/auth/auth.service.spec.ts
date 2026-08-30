@@ -1,15 +1,15 @@
-import { jest } from '@jest/globals';
+import { describe, it, expect, jest } from '@jest/globals';
 import { createHash } from 'crypto';
 import { AuthService } from './auth.service';
 
 describe('AuthService challenge flow', () => {
-  const userRepository = {
+  const userRepository: any = {
     findOne: jest.fn(),
     create: jest.fn(),
     save: jest.fn(),
   };
 
-  const sessionRepository = {
+  const sessionRepository: any = {
     create: jest.fn(),
     save: jest.fn(),
     findOne: jest.fn(),
@@ -17,26 +17,26 @@ describe('AuthService challenge flow', () => {
     update: jest.fn(),
   };
 
-  const authAttemptRepository = {
+  const authAttemptRepository: any = {
     create: jest.fn(),
     save: jest.fn(),
   };
 
-  const challengeRepository = {
+  const challengeRepository: any = {
     create: jest.fn(),
     save: jest.fn(),
     findOne: jest.fn(),
     update: jest.fn(),
   };
 
-  const pendingReviewRepository = {
+  const pendingReviewRepository: any = {
     findOne: jest.fn(),
     find: jest.fn(),
     save: jest.fn(),
     update: jest.fn(),
   };
 
-  const auditLogRepository = {
+  const auditLogRepository: any = {
     create: jest.fn(),
     save: jest.fn(),
   };
@@ -133,7 +133,7 @@ describe('AuthService challenge flow', () => {
       stepUpVerifiedAt: new Date(Date.now() - 1000 * 60 * 20),
     });
 
-    await expect(authService.ensureFreshStepUp('user-1', 'session-1')).rejects.toThrow(
+    await expect(authService.ensureFreshStepUp('session-1')).rejects.toThrow(
       'Fresh step-up verification is required',
     );
   });
