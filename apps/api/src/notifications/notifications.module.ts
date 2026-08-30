@@ -12,6 +12,7 @@ import { CourseGroup } from '../courses/entities/course-group.entity';
 import { Course } from '../courses/entities/course.entity';
 import { ProfessorTeachingClaim } from '../courses/entities/professor-teaching-claim.entity';
 import { RolesGuard } from '../auth/roles.guard';
+import { User } from '../auth/entities/user.entity';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { RolesGuard } from '../auth/roles.guard';
       Announcement,
       Notification,
       NotificationDeliveryLog,
+      User,
       CourseGroup,
       Course,
       ProfessorTeachingClaim,
