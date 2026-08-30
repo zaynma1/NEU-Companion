@@ -51,7 +51,7 @@ Status: In progress
 - [x] FAQ and moderation
 - [x] Deletion lifecycle
 - [x] Profiles and office hours
-- [ ] Admin operations and system controls are pending
+- [x] Admin operations and system controls
 
 This keeps the foundation stable before feature expansion.
 

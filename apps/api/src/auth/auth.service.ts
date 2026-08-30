@@ -3,11 +3,13 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { OAuth2Client } from 'google-auth-library';
 import { createHash, randomUUID } from 'crypto';
 import { IsNull, Repository } from 'typeorm';
+import { AllowedEmailDomain } from './entities/allowed-email-domain.entity';
 import { AuditLogEntry } from './entities/audit-log-entry.entity';
 import { AuthAttempt } from './entities/auth-attempt.entity';
 import { Challenge } from './entities/challenge.entity';
 import { DeletionRequest } from './entities/deletion-request.entity';
 import { PendingReviewItem } from './entities/pending-review-item.entity';
+import { SecurityAlert } from './entities/security-alert.entity';
 import { Session } from './entities/session.entity';
 import { SystemConfig } from './entities/system-config.entity';
 import { User } from './entities/user.entity';
@@ -34,6 +36,8 @@ export type VerifyChallengeInput = {
   purpose?: string;
 };
 
+const SUPPORTED_SYSTEM_CONFIG_KEYS = new Set(['active_term', 'campus_timezone']);
+
 @Injectable()
 export class AuthService {
   private readonly googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
@@ -55,6 +59,10 @@ export class AuthService {
     private readonly systemConfigRepository: Repository<SystemConfig> = null as any,
     @InjectRepository(DeletionRequest)
     private readonly deletionRequestRepository: Repository<DeletionRequest> = null as any,
+    @InjectRepository(AllowedEmailDomain)
+    private readonly allowedEmailDomainRepository: Repository<AllowedEmailDomain> = null as any,
+    @InjectRepository(SecurityAlert)
+    private readonly securityAlertRepository: Repository<SecurityAlert> = null as any,
   ) {}
 
   async findOrCreateUser(input: {
@@ -119,7 +127,17 @@ export class AuthService {
     }
 
     if (actorUserId && actorUserId === userId) {
-      throw new UnauthorizedException('Self-role escalation is not allowed through direct role correction');
+      throw new UnauthorizedException('Self-role changes are not allowed through direct role correction');
+    }
+
+    if (user.role === 'admin' && role !== 'admin') {
+      const activeAdmins = await this.userRepository.find({
+        where: { role: 'admin', accountStatus: 'active' },
+      });
+
+      if (activeAdmins.length <= 1) {
+        throw new UnauthorizedException('The final active admin cannot be demoted');
+      }
     }
 
     const previousRole = user.role;
@@ -780,6 +798,16 @@ export class AuthService {
       throw new UnauthorizedException('User not found');
     }
 
+    if (user.role === 'admin' && accountStatus !== 'active') {
+      const activeAdmins = await this.userRepository.find({
+        where: { role: 'admin', accountStatus: 'active' },
+      });
+
+      if (activeAdmins.length <= 1) {
+        throw new UnauthorizedException('The final active admin cannot be suspended or blocked');
+      }
+    }
+
     const previousStatus = user.accountStatus;
     user.accountStatus = accountStatus;
     const saved = await this.userRepository.save(user);
@@ -890,6 +918,237 @@ export class AuthService {
     return configs.map((c) => ({ key: c.key, value: c.value }));
   }
 
+  async listAllowedEmailDomains(limit: number, cursor?: string): Promise<{ items: AllowedEmailDomain[]; nextCursor: string | null }> {
+    if (!this.allowedEmailDomainRepository) {
+      return { items: [], nextCursor: null };
+    }
+
+    const query = this.allowedEmailDomainRepository.createQueryBuilder('d');
+
+    if (cursor) {
+      query.andWhere('d.emailDomain > :cursor', { cursor });
+    }
+
+    const items = await query.orderBy('d.emailDomain', 'ASC').take(limit + 1).getMany();
+    const hasMore = items.length > limit;
+    const results = hasMore ? items.slice(0, limit) : items;
+
+    return {
+      items: results,
+      nextCursor: hasMore ? results[results.length - 1]?.emailDomain ?? null : null,
+    };
+  }
+
+  async createAllowedEmailDomain(input: { emailDomain: string; allowSubdomains?: boolean; actorUserId?: string }): Promise<AllowedEmailDomain> {
+    if (!this.allowedEmailDomainRepository) {
+      throw new UnauthorizedException('Allowed email domain management is not available');
+    }
+
+    const normalized = input.emailDomain.trim().toLowerCase();
+    if (!normalized || !normalized.includes('.')) {
+      throw new UnauthorizedException('A valid email domain is required');
+    }
+
+    const existing = await this.allowedEmailDomainRepository.findOne({ where: { emailDomain: normalized } });
+    if (existing) {
+      throw new UnauthorizedException('This email domain is already allowed');
+    }
+
+    const entity = this.allowedEmailDomainRepository.create({
+      emailDomain: normalized,
+      allowSubdomains: input.allowSubdomains ?? false,
+      createdBy: input.actorUserId ?? null,
+      updatedBy: input.actorUserId ?? null,
+    });
+
+    const saved = await this.allowedEmailDomainRepository.save(entity);
+
+    if (this.auditLogRepository) {
+      await this.auditLogRepository.save(
+        this.auditLogRepository.create({
+          actorId: input.actorUserId ?? null,
+          actorLabelSnapshot: input.actorUserId ? `admin:${input.actorUserId}` : 'system',
+          actionType: 'allowed_email_domain_added',
+          targetEntity: 'allowed_email_domains',
+          targetId: saved.id,
+          beforeValue: null,
+          afterValue: { emailDomain: normalized, allowSubdomains: saved.allowSubdomains },
+        }),
+      );
+    }
+
+    return saved;
+  }
+
+  async updateAllowedEmailDomain(input: { emailDomain: string; allowSubdomains: boolean; actorUserId?: string }): Promise<AllowedEmailDomain> {
+    if (!this.allowedEmailDomainRepository) {
+      throw new UnauthorizedException('Allowed email domain management is not available');
+    }
+
+    const normalized = input.emailDomain.trim().toLowerCase();
+    const existing = await this.allowedEmailDomainRepository.findOne({ where: { emailDomain: normalized } });
+
+    if (!existing) {
+      throw new UnauthorizedException('Allowed email domain not found');
+    }
+
+    const previous = { allowSubdomains: existing.allowSubdomains };
+    existing.allowSubdomains = input.allowSubdomains;
+    existing.updatedBy = input.actorUserId ?? null;
+
+    const saved = await this.allowedEmailDomainRepository.save(existing);
+
+    if (this.auditLogRepository) {
+      await this.auditLogRepository.save(
+        this.auditLogRepository.create({
+          actorId: input.actorUserId ?? null,
+          actorLabelSnapshot: input.actorUserId ? `admin:${input.actorUserId}` : 'system',
+          actionType: 'allowed_email_domain_updated',
+          targetEntity: 'allowed_email_domains',
+          targetId: saved.id,
+          beforeValue: previous,
+          afterValue: { allowSubdomains: saved.allowSubdomains },
+        }),
+      );
+    }
+
+    return saved;
+  }
+
+  async deleteAllowedEmailDomain(emailDomain: string, actorUserId?: string): Promise<void> {
+    if (!this.allowedEmailDomainRepository) {
+      throw new UnauthorizedException('Allowed email domain management is not available');
+    }
+
+    const normalized = emailDomain.trim().toLowerCase();
+    const existing = await this.allowedEmailDomainRepository.findOne({ where: { emailDomain: normalized } });
+
+    if (!existing) {
+      throw new UnauthorizedException('Allowed email domain not found');
+    }
+
+    const count = await this.allowedEmailDomainRepository.count();
+    if (count <= 1) {
+      throw new UnauthorizedException('At least one domain must remain allowed');
+    }
+
+    await this.allowedEmailDomainRepository.remove(existing);
+
+    if (this.auditLogRepository) {
+      await this.auditLogRepository.save(
+        this.auditLogRepository.create({
+          actorId: actorUserId ?? null,
+          actorLabelSnapshot: actorUserId ? `admin:${actorUserId}` : 'system',
+          actionType: 'allowed_email_domain_removed',
+          targetEntity: 'allowed_email_domains',
+          targetId: existing.id,
+          beforeValue: { emailDomain: normalized, allowSubdomains: existing.allowSubdomains },
+          afterValue: null,
+        }),
+      );
+    }
+  }
+
+  async listAuditLogs(input: {
+    targetEntity?: string | null;
+    actorId?: string | null;
+    actionType?: string | null;
+    from?: string | null;
+    to?: string | null;
+    limit: number;
+    cursor?: string | null;
+  }): Promise<{ items: AuditLogEntry[]; nextCursor: string | null }> {
+    if (!this.auditLogRepository) {
+      return { items: [], nextCursor: null };
+    }
+
+    const query = this.auditLogRepository.createQueryBuilder('a');
+
+    if (input.targetEntity) {
+      query.andWhere('a.targetEntity = :targetEntity', { targetEntity: input.targetEntity });
+    }
+
+    if (input.actorId) {
+      query.andWhere('a.actorId = :actorId', { actorId: input.actorId });
+    }
+
+    if (input.actionType) {
+      query.andWhere('a.actionType = :actionType', { actionType: input.actionType });
+    }
+
+    if (input.from) {
+      query.andWhere('a.createdAt >= :from', { from: new Date(input.from) });
+    }
+
+    if (input.to) {
+      query.andWhere('a.createdAt <= :to', { to: new Date(input.to) });
+    }
+
+    if (input.cursor) {
+      query.andWhere('a.id > :cursor', { cursor: input.cursor });
+    }
+
+    const items = await query.orderBy('a.createdAt', 'DESC').take(input.limit + 1).getMany();
+    const hasMore = items.length > input.limit;
+    const results = hasMore ? items.slice(0, input.limit) : items;
+
+    return {
+      items: results,
+      nextCursor: hasMore ? results[results.length - 1]?.id ?? null : null,
+    };
+  }
+
+  async listSecurityAlerts(limit: number, cursor?: string): Promise<{ items: SecurityAlert[]; nextCursor: string | null }> {
+    if (!this.securityAlertRepository) {
+      return { items: [], nextCursor: null };
+    }
+
+    const query = this.securityAlertRepository.createQueryBuilder('s');
+
+    if (cursor) {
+      query.andWhere('s.id > :cursor', { cursor });
+    }
+
+    const items = await query.orderBy('s.triggeredAt', 'DESC').take(limit + 1).getMany();
+    const hasMore = items.length > limit;
+    const results = hasMore ? items.slice(0, limit) : items;
+
+    return {
+      items: results,
+      nextCursor: hasMore ? results[results.length - 1]?.id ?? null : null,
+    };
+  }
+
+  async acknowledgeSecurityAlert(alertId: string, actorUserId?: string): Promise<SecurityAlert> {
+    if (!this.securityAlertRepository) {
+      throw new UnauthorizedException('Security alerts are not available');
+    }
+
+    const alert = await this.securityAlertRepository.findOne({ where: { id: alertId } });
+    if (!alert) {
+      throw new UnauthorizedException('Security alert not found');
+    }
+
+    alert.acknowledgedAt = new Date();
+    const saved = await this.securityAlertRepository.save(alert);
+
+    if (this.auditLogRepository) {
+      await this.auditLogRepository.save(
+        this.auditLogRepository.create({
+          actorId: actorUserId ?? null,
+          actorLabelSnapshot: actorUserId ? `admin:${actorUserId}` : 'system',
+          actionType: 'security_alert_acknowledged',
+          targetEntity: 'security_alerts',
+          targetId: saved.id,
+          beforeValue: { acknowledgedAt: null },
+          afterValue: { acknowledgedAt: saved.acknowledgedAt },
+        }),
+      );
+    }
+
+    return saved;
+  }
+
   async updateSystemConfig(
     key: string,
     value: string,
@@ -897,6 +1156,10 @@ export class AuthService {
   ): Promise<SystemConfig> {
     if (!this.systemConfigRepository) {
       throw new UnauthorizedException('System config is not available');
+    }
+
+    if (!SUPPORTED_SYSTEM_CONFIG_KEYS.has(key)) {
+      throw new UnauthorizedException('Unsupported system config key');
     }
 
     let config = await this.systemConfigRepository.findOne({ where: { key } });

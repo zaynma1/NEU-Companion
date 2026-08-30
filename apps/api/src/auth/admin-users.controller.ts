@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Post,
@@ -37,6 +38,15 @@ class LegalHoldDto {
   hold?: boolean;
   reason?: string;
   until?: string;
+}
+
+class AllowedDomainDto {
+  email_domain!: string;
+  allow_subdomains?: boolean;
+}
+
+class DomainUpdateDto {
+  allow_subdomains!: boolean;
 }
 
 @Controller('admin')
@@ -169,6 +179,149 @@ export class AdminUsersController {
       actorUserId: req.user?.id,
       targetUserId: userId,
       professorVerifiedAt: targetUser.professorVerifiedAt,
+    };
+  }
+
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles('admin')
+  @Get('allowed-email-domains')
+  async listAllowedEmailDomains(
+    @Req() req: Request & { user?: { id: string; sessionId?: string; role?: string } },
+    @Query() query: { limit?: number; cursor?: string },
+  ) {
+    const limit = Number(query.limit ?? 25);
+    if (!Number.isFinite(limit) || limit < 1 || limit > 100) {
+      throw new UnauthorizedException('Limit must be between 1 and 100');
+    }
+
+    const result = await this.authService.listAllowedEmailDomains(limit, query.cursor ?? undefined);
+
+    return {
+      ok: true,
+      items: result.items,
+      nextCursor: result.nextCursor,
+    };
+  }
+
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles('admin')
+  @Post('allowed-email-domains')
+  async createAllowedEmailDomain(
+    @Req() req: Request & { user?: { id: string; sessionId?: string; role?: string } },
+    @Body() body: AllowedDomainDto,
+  ) {
+    if (!body.email_domain) {
+      throw new UnauthorizedException('Email domain is required');
+    }
+
+    const item = await this.authService.createAllowedEmailDomain({
+      emailDomain: body.email_domain,
+      allowSubdomains: body.allow_subdomains ?? false,
+      actorUserId: req.user?.id,
+    });
+
+    return {
+      ok: true,
+      item,
+    };
+  }
+
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles('admin')
+  @Put('allowed-email-domains/:emailDomain')
+  async updateAllowedEmailDomain(
+    @Req() req: Request & { user?: { id: string; sessionId?: string; role?: string } },
+    @Param('emailDomain') emailDomain: string,
+    @Body() body: DomainUpdateDto,
+  ) {
+    const item = await this.authService.updateAllowedEmailDomain({
+      emailDomain,
+      allowSubdomains: body.allow_subdomains,
+      actorUserId: req.user?.id,
+    });
+
+    return {
+      ok: true,
+      item,
+    };
+  }
+
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles('admin')
+  @Delete('allowed-email-domains/:emailDomain')
+  async deleteAllowedEmailDomain(
+    @Req() req: Request & { user?: { id: string; sessionId?: string; role?: string } },
+    @Param('emailDomain') emailDomain: string,
+  ) {
+    await this.authService.deleteAllowedEmailDomain(emailDomain, req.user?.id);
+
+    return {
+      ok: true,
+    };
+  }
+
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles('admin')
+  @Get('audit-logs')
+  async listAuditLogs(
+    @Req() req: Request & { user?: { id: string; sessionId?: string; role?: string } },
+    @Query() query: { target_entity?: string; actor_id?: string; action_type?: string; from?: string; to?: string; limit?: number; cursor?: string },
+  ) {
+    const limit = Number(query.limit ?? 25);
+    if (!Number.isFinite(limit) || limit < 1 || limit > 500) {
+      throw new UnauthorizedException('Limit must be between 1 and 500');
+    }
+
+    const result = await this.authService.listAuditLogs({
+      targetEntity: query.target_entity ?? null,
+      actorId: query.actor_id ?? null,
+      actionType: query.action_type ?? null,
+      from: query.from ?? null,
+      to: query.to ?? null,
+      limit,
+      cursor: query.cursor ?? null,
+    });
+
+    return {
+      ok: true,
+      items: result.items,
+      nextCursor: result.nextCursor,
+    };
+  }
+
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles('admin')
+  @Get('security-alerts')
+  async listSecurityAlerts(
+    @Req() req: Request & { user?: { id: string; sessionId?: string; role?: string } },
+    @Query() query: { limit?: number; cursor?: string },
+  ) {
+    const limit = Number(query.limit ?? 25);
+    if (!Number.isFinite(limit) || limit < 1 || limit > 100) {
+      throw new UnauthorizedException('Limit must be between 1 and 100');
+    }
+
+    const result = await this.authService.listSecurityAlerts(limit, query.cursor ?? undefined);
+
+    return {
+      ok: true,
+      items: result.items,
+      nextCursor: result.nextCursor,
+    };
+  }
+
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles('admin')
+  @Post('security-alerts/:alertId/acknowledge')
+  async acknowledgeSecurityAlert(
+    @Req() req: Request & { user?: { id: string; sessionId?: string; role?: string } },
+    @Param('alertId') alertId: string,
+  ) {
+    const alert = await this.authService.acknowledgeSecurityAlert(alertId, req.user?.id);
+
+    return {
+      ok: true,
+      alert,
     };
   }
 

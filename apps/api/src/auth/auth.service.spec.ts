@@ -4,6 +4,7 @@ import { AuthService } from './auth.service';
 
 describe('AuthService challenge flow', () => {
   const userRepository: any = {
+    find: jest.fn(),
     findOne: jest.fn(),
     create: jest.fn(),
     save: jest.fn(),
@@ -48,6 +49,13 @@ describe('AuthService challenge flow', () => {
     save: jest.fn(),
   };
 
+  const systemConfigRepository: any = {
+    findOne: jest.fn(),
+    find: jest.fn(),
+    create: jest.fn(),
+    save: jest.fn(),
+  };
+
   const authService = new AuthService(
     userRepository as any,
     sessionRepository as any,
@@ -55,9 +63,13 @@ describe('AuthService challenge flow', () => {
     challengeRepository as any,
     pendingReviewRepository as any,
     auditLogRepository as any,
-    undefined as any,
+    systemConfigRepository as any,
     deletionRequestRepository as any,
   );
+
+  beforeEach(() => {
+    jest.resetAllMocks();
+  });
 
   it('issues a challenge and verifies it without exposing the stored secret', async () => {
     const storedChallenge = {
@@ -246,6 +258,34 @@ describe('AuthService challenge flow', () => {
     const hold = await authService.setLegalHold('delete-2', true, 'review required', new Date(Date.now() + 86400000));
 
     expect(hold.legalHoldReason).toBe('review required');
+  });
+
+  it('prevents demoting the final active admin through direct role correction', async () => {
+    const targetUser = {
+      id: 'admin-1',
+      role: 'admin',
+      accountStatus: 'active',
+    };
+
+    sessionRepository.findOne.mockResolvedValue({
+      id: 'session-1',
+      userId: 'actor-1',
+      stepUpVerifiedAt: new Date(Date.now() - 1000 * 60 * 5),
+    });
+    userRepository.findOne.mockResolvedValueOnce(targetUser);
+    userRepository.find.mockResolvedValueOnce([{ id: 'admin-1', role: 'admin', accountStatus: 'active' }]);
+
+    await expect(authService.setUserRole('admin-1', 'student', 'actor-1', 'session-1')).rejects.toThrow(
+      'The final active admin cannot be demoted',
+    );
+  });
+
+  it('rejects unsupported system configuration keys', async () => {
+    userRepository.findOne.mockResolvedValue({ id: 'admin-1', role: 'admin' });
+
+    await expect(authService.updateSystemConfig('unsupported_key', 'value', 'admin-1')).rejects.toThrow(
+      'Unsupported system config key',
+    );
   });
 
   it('processes a deletion request idempotently and anonymizes the user', async () => {

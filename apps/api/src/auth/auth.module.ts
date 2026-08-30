@@ -5,12 +5,14 @@ import { AdminUsersController } from './admin-users.controller';
 import { AuthController } from './auth.controller';
 import { AuthGuard } from './auth.guard';
 import { AuthService } from './auth.service';
+import { AllowedEmailDomain } from './entities/allowed-email-domain.entity';
 import { AuditLogEntry } from './entities/audit-log-entry.entity';
 import { AuthAttempt } from './entities/auth-attempt.entity';
 import { Challenge } from './entities/challenge.entity';
 import { DeletionRequest } from './entities/deletion-request.entity';
 import { PendingReviewItem } from './entities/pending-review-item.entity';
 import { RoleAssignmentRule } from './entities/role-assignment-rule.entity';
+import { SecurityAlert } from './entities/security-alert.entity';
 import { Session } from './entities/session.entity';
 import { SystemConfig } from './entities/system-config.entity';
 import { User } from './entities/user.entity';
@@ -30,6 +32,8 @@ import { RolesGuard } from './roles.guard';
       DeletionRequest,
       AuditLogEntry,
       SystemConfig,
+      AllowedEmailDomain,
+      SecurityAlert,
     ]),
   ],
   controllers: [AuthController, AdminRoleController, AdminUsersController, PendingReviewController],
