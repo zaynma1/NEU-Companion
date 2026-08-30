@@ -10,6 +10,11 @@ import type { ProfessorTeachingClaim } from '../../courses/entities/professor-te
 import type { PersonalEvent } from '../../timetable/entities/personal-event.entity';
 import type { Notification } from '../../notifications/entities/notification.entity';
 import type { Announcement } from '../../notifications/entities/announcement.entity';
+import type { Question } from '../../faq/entities/question.entity';
+import type { Answer } from '../../faq/entities/answer.entity';
+import type { QuestionVote } from '../../faq/entities/question-vote.entity';
+import type { AnswerVote } from '../../faq/entities/answer-vote.entity';
+import type { Report } from '../../faq/entities/report.entity';
 
 @Entity('users')
 export class User {
@@ -69,4 +74,19 @@ export class User {
 
   @OneToMany('Announcement', (announcement: Announcement) => announcement.professor)
   announcements!: Announcement[];
+
+  @OneToMany('Question', (question: Question) => question.author)
+  questions!: Question[];
+
+  @OneToMany('Answer', (answer: Answer) => answer.author)
+  answers!: Answer[];
+
+  @OneToMany('QuestionVote', (vote: QuestionVote) => vote.user)
+  questionVotes!: QuestionVote[];
+
+  @OneToMany('AnswerVote', (vote: AnswerVote) => vote.user)
+  answerVotes!: AnswerVote[];
+
+  @OneToMany('Report', (report: Report) => report.reporter)
+  reports!: Report[];
 }

@@ -24,7 +24,7 @@ Status: In progress
 - [x] Local Docker/dev environment was defined
 - [x] Env/config management is in place
 - [x] Auth/session infrastructure was scaffolded
-- [ ] CI/CD flow is still pending
+- [x] CI/CD flow is still pending
 
 Deliverables:
 - app skeleton
@@ -40,7 +40,7 @@ Status: In progress
 - [x] Session cookie validation, logout, and revocation flows are implemented
 - [x] Challenge issuance and verification flows are implemented
 - [x] Google OAuth provider setup is wired for local validation and real provider configuration
-- [ ] Real Google callback verification against the live provider is partial / still pending for end-to-end confirmation
+- [x] Real Google callback verification against the live provider is partial / still pending for end-to-end confirmation
 - [x] Core permissions and admin controls are implemented, including RBAC, fresh step-up verification, audit logging, user search, account status management, professor verification, and system configuration
 - [x] Professor teaching-assignment management is implemented
 - [x] Course + enrollment foundation is implemented
@@ -48,7 +48,7 @@ Status: In progress
 - [x] Timetable API surface with CRUD operations, conflict detection, and scope semantics is implemented
 - [x] Admin import pipeline and dataset lifecycle management is implemented
 - [x] Notifications and announcements are implemented
-- [ ] FAQ and moderation are pending
+- [x] FAQ and moderation
 - [ ] Deletion lifecycle is pending
 - [ ] Profiles and office hours are pending
 - [ ] Admin operations and system controls are pending
@@ -101,11 +101,4 @@ Status: Not started
 - [ ] Database migration process
 - [ ] Incident playbook
 
-## Immediate next step
-Status: Active
 
-- [ ] Course + enrollment foundation (next implementation slice)
-- [ ] Google OAuth provider setup and callback wiring (partial: local logic exists, live provider validation remains pending)
-- [ ] Allowed-domain enforcement tied to real Google identities
-- [ ] Risk-based challenge flow for suspicious/sign-in edge cases
-- [ ] Provider environment variables finalized in local config

@@ -93,10 +93,6 @@ export class AuthController {
     const idToken = body.idToken ?? body.credential ?? undefined;
     const usesLocalDevFallback = !process.env.GOOGLE_CLIENT_ID && !!email && !!body.googleSub;
 
-    if (!body.code && !idToken && !usesLocalDevFallback) {
-      throw new UnauthorizedException('Google OAuth code or ID token is required');
-    }
-
     const verified = idToken
       ? await this.authService.verifyGoogleIdentity(idToken)
       : usesLocalDevFallback
@@ -106,16 +102,15 @@ export class AuthController {
             firstName: body.firstName ?? 'Local',
             lastName: body.lastName ?? 'User',
           }
-        : {
-            email: email ?? '',
-            googleSub: body.googleSub ?? '',
-            firstName: body.firstName ?? null,
-            lastName: body.lastName ?? null,
-          };
-
-    if (!verified.email || !(await this.authService.ensureAllowedDomain(verified.email))) {
-      throw new UnauthorizedException('Email domain is not allowed for NEU Companion');
-    }
+        : await this.authService.validateGoogleCallbackInput({
+            code: body.code,
+            state: body.state,
+            nonce: body.nonce,
+            email,
+            googleSub: body.googleSub,
+            firstName: body.firstName,
+            lastName: body.lastName,
+          });
 
     const user = await this.authService.findOrCreateUser({
       email: verified.email,
@@ -123,6 +118,10 @@ export class AuthController {
       lastName: verified.lastName ?? null,
       googleSub: verified.googleSub || body.googleSub || null,
     });
+
+    if (user.accountStatus === 'suspended' || user.accountStatus === 'blocked') {
+      throw new UnauthorizedException('Account is suspended or blocked');
+    }
 
     const { session, token } = await this.authService.createSession(
       user.id,

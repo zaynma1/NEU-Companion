@@ -347,6 +347,51 @@ export class AuthService {
     return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
   }
 
+  async validateGoogleCallbackInput(input: {
+    code?: string;
+    state?: string;
+    nonce?: string;
+    email?: string;
+    googleSub?: string;
+    firstName?: string | null;
+    lastName?: string | null;
+  }): Promise<{ email: string; googleSub: string; firstName?: string | null; lastName?: string | null }> {
+    const hasProviderCode = !!input.code;
+    const hasIdTokenInput = !!input.email && !!input.googleSub;
+
+    if (!hasProviderCode && !hasIdTokenInput) {
+      throw new UnauthorizedException('Google OAuth code or ID token is required');
+    }
+
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    const needsStateAndNonce = !!clientId && !!input.code;
+
+    if (needsStateAndNonce && (!input.state || !input.nonce)) {
+      throw new UnauthorizedException('Google OAuth state and nonce are required');
+    }
+
+    const email = input.email?.trim().toLowerCase();
+    if (!email) {
+      throw new UnauthorizedException('Google account email is required');
+    }
+
+    if (!(await this.ensureAllowedDomain(email))) {
+      throw new UnauthorizedException('Email domain is not allowed for NEU Companion');
+    }
+
+    const existingUser = await this.userRepository.findOne({ where: { email } });
+    if (existingUser && (existingUser.accountStatus === 'suspended' || existingUser.accountStatus === 'blocked')) {
+      throw new UnauthorizedException('Account is suspended or blocked');
+    }
+
+    return {
+      email,
+      googleSub: input.googleSub ?? existingUser?.googleSubjectId ?? 'local-dev-google-sub',
+      firstName: input.firstName ?? existingUser?.fullName?.split(' ')[0] ?? null,
+      lastName: input.lastName ?? existingUser?.fullName?.split(' ').slice(1).join(' ') ?? null,
+    };
+  }
+
   async verifyGoogleIdentity(idToken: string): Promise<{
     email: string;
     googleSub: string;

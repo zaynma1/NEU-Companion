@@ -1,0 +1,46 @@
+apps/api/src/admin/admin-import.controller.ts(30,35): error TS2694: Namespace 'global.Express' has no exported member 'Multer'.
+apps/api/src/admin/admin-import.controller.ts(237,35): error TS2694: Namespace 'global.Express' has no exported member 'Multer'.
+apps/api/src/admin/admin-import.service.ts(5,29): error TS2307: Cannot find module '../entities/import-batch.entity' or its corresponding type declarations.
+apps/api/src/admin/admin-import.service.ts(6,32): error TS2307: Cannot find module '../entities/import-row-error.entity' or its corresponding type declarations.
+apps/api/src/admin/admin-import.service.ts(7,32): error TS2307: Cannot find module '../entities/dataset-version.entity' or its corresponding type declarations.
+apps/api/src/admin/admin-import.service.ts(8,31): error TS2307: Cannot find module '../../timetable/entities/official-event.entity' or its corresponding type declarations.
+apps/api/src/admin/admin-import.service.ts(9,24): error TS2307: Cannot find module '../../courses/entities/course.entity' or its corresponding type declarations.
+apps/api/src/admin/admin-import.service.ts(10,29): error TS2307: Cannot find module '../../courses/entities/course-group.entity' or its corresponding type declarations.
+apps/api/src/admin/admin-import.service.ts(11,51): error TS2307: Cannot find module '../dtos/import.dto' or its corresponding type declarations.
+apps/api/src/admin/admin-import.service.ts(276,45): error TS2339: Property 'id' does not exist on type '{ term: any; isCurrent: boolean; }'.
+apps/api/src/admin/admin-import.service.ts(342,43): error TS2339: Property 'id' does not exist on type '{ term: any; isCurrent: boolean; }'.
+apps/api/src/admin/dtos/import.dto.ts(15,18): error TS2694: Namespace 'global.Express' has no exported member 'Multer'.
+apps/api/src/admin/dtos/import.dto.ts(46,18): error TS2694: Namespace 'global.Express' has no exported member 'Multer'.
+apps/api/src/auth/auth.service.spec.ts(69,50): error TS2345: Argument of type '{ id: string; }' is not assignable to parameter of type 'never'.
+apps/api/src/auth/auth.service.spec.ts(71,7): error TS2698: Spread types may only be created from object types.
+apps/api/src/auth/auth.service.spec.ts(86,51): error TS2345: Argument of type '{ id: string; authAttemptId: string; accountUserId: string; sessionId: null; deviceFingerprint: string; purpose: string; challengeType: "step_up"; challengeSecretHash: string; issuedAt: Date; expiresAt: Date; consumedAt: null; failedAttempts: number; }' is not assignable to parameter of type 'never'.
+apps/api/src/auth/auth.service.spec.ts(87,50): error TS2345: Argument of type '{}' is not assignable to parameter of type 'never'.
+apps/api/src/auth/auth.service.spec.ts(130,49): error TS2345: Argument of type '{ id: string; userId: string; stepUpVerifiedAt: Date; }' is not assignable to parameter of type 'never'.
+apps/api/src/auth/auth.service.spec.ts(136,58): error TS2554: Expected 1 arguments, but got 2.
+apps/api/src/auth/auth.service.spec.ts(167,48): error TS2345: Argument of type '{ id: string; email: string; accountStatus: string; }' is not assignable to parameter of type 'never'.
+apps/api/src/auth/role-guard.spec.ts(10,57): error TS2345: Argument of type '{ id: string; userId: string; user: { id: string; email: string; role: string; accountStatus: string; }; }' is not assignable to parameter of type 'never'.
+apps/api/src/auth/role-guard.spec.ts(32,16): error TS2339: Property 'user' does not exist on type '{ cookies: { neu_companion_session: string; }; }'.
+apps/api/src/faq/entities/question-vote.entity.ts(17,59): error TS2339: Property 'votes' does not exist on type 'Question'.
+apps/api/src/faq/entities/question.entity.ts(58,10): error TS2304: Cannot find name 'CategoryTag'.
+apps/api/src/faq/faq.service.spec.ts(26,57): error TS2698: Spread types may only be created from object types.
+apps/api/src/faq/faq.service.spec.ts(35,55): error TS2698: Spread types may only be created from object types.
+apps/api/src/faq/faq.service.spec.ts(67,55): error TS2698: Spread types may only be created from object types.
+apps/api/src/faq/faq.service.ts(89,7): error TS2559: Type 'string[]' has no properties in common with type 'FindOptionsRelations<Question>'.
+apps/api/src/faq/faq.service.ts(192,83): error TS2559: Type 'string[]' has no properties in common with type 'FindOptionsRelations<Answer>'.
+apps/api/src/faq/faq.service.ts(214,83): error TS2559: Type 'string[]' has no properties in common with type 'FindOptionsRelations<Answer>'.
+apps/api/src/faq/faq.service.ts(319,37): error TS2352: Conversion of type '{ label: string; }' to type 'QuestionTag' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type '{ label: string; }' is missing the following properties from type 'QuestionTag': questionId, categoryTagId, question, categoryTag
+apps/api/src/notifications/entities/notification-preference.entity.ts(9,24): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(typeFunctionOrTarget: string | ((type?: any) => ObjectType<unknown>), options?: RelationOptions | undefined): PropertyDecorator', gave the following error.
+    Object literal may only specify known properties, and 'primary' does not exist in type 'RelationOptions'.
+  Overload 2 of 2, '(typeFunctionOrTarget: string | ((type?: any) => ObjectType<unknown>), inverseSide?: string | ((object: unknown) => any) | undefined, options?: RelationOptions | undefined): PropertyDecorator', gave the following error.
+    Object literal may only specify known properties, and 'primary' does not exist in type '(object: unknown) => any'.
+apps/api/src/notifications/notifications.service.ts(81,7): error TS2559: Type 'string[]' has no properties in common with type 'FindOptionsRelations<MutedCourse>'.
+apps/api/src/notifications/notifications.service.ts(222,7): error TS2559: Type 'string[]' has no properties in common with type 'FindOptionsRelations<CourseGroup>'.
+apps/api/src/notifications/notifications.service.ts(250,7): error TS2559: Type 'string[]' has no properties in common with type 'FindOptionsRelations<Announcement>'.
+apps/api/src/timetable/timetable.controller.ts(121,9): error TS2322: Type 'string | null | undefined' is not assignable to type 'string | undefined'.
+  Type 'null' is not assignable to type 'string | undefined'.
+apps/api/src/timetable/timetable.controller.ts(124,9): error TS2322: Type 'string | null | undefined' is not assignable to type 'string | undefined'.
+  Type 'null' is not assignable to type 'string | undefined'.
+apps/api/src/timetable/timetable.service.ts(51,7): error TS2559: Type 'string[]' has no properties in common with type 'FindOptionsRelations<Enrollment>'.
+apps/api/src/timetable/timetable.service.ts(242,7): error TS2559: Type 'string[]' has no properties in common with type 'FindOptionsRelations<Enrollment>'.

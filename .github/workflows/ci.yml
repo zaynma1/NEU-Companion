@@ -1,0 +1,86 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    name: Backend API
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: neu_companion_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build API
+        run: npm --workspace apps/api run build
+
+      - name: Run API tests
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/neu_companion_test
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
+          NODE_ENV: test
+          PORT: 3001
+        run: npm --workspace apps/api run test
+
+      - name: Start API for smoke test
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/neu_companion_test
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
+          NODE_ENV: test
+          PORT: 3001
+        run: |
+          npm --workspace apps/api run start:prod &
+          SERVER_PID=$!
+          sleep 3
+          
+          # Verify health endpoint responds
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3001/ || echo "000")
+          kill $SERVER_PID 2>/dev/null || true
+          wait $SERVER_PID 2>/dev/null || true
+          
+          if [ "$HTTP_STATUS" = "200" ]; then
+            echo "✓ API health check passed (HTTP $HTTP_STATUS)"
+            exit 0
+          else
+            echo "✗ API health check failed (HTTP $HTTP_STATUS)"
+            exit 1
+          fi

@@ -137,4 +137,54 @@ describe('AuthService challenge flow', () => {
       'Fresh step-up verification is required',
     );
   });
+
+  it('rejects Google callback requests that are missing the provider state and nonce', async () => {
+    const previousClientId = process.env.GOOGLE_CLIENT_ID;
+    process.env.GOOGLE_CLIENT_ID = 'test-client-id';
+
+    try {
+      await expect(
+        authService.validateGoogleCallbackInput({
+          code: 'fake-code',
+          email: 'student@std.neu.edu.tr',
+          googleSub: 'google-sub-123',
+        }),
+      ).rejects.toThrow('Google OAuth state and nonce are required');
+    } finally {
+      if (previousClientId) {
+        process.env.GOOGLE_CLIENT_ID = previousClientId;
+      } else {
+        delete process.env.GOOGLE_CLIENT_ID;
+      }
+    }
+  });
+
+  it('blocks inactive accounts during the Google callback flow', async () => {
+    const previousClientId = process.env.GOOGLE_CLIENT_ID;
+    process.env.GOOGLE_CLIENT_ID = 'test-client-id';
+
+    try {
+      userRepository.findOne.mockResolvedValue({
+        id: 'user-1',
+        email: 'student@std.neu.edu.tr',
+        accountStatus: 'blocked',
+      });
+
+      await expect(
+        authService.validateGoogleCallbackInput({
+          code: 'fake-code',
+          state: 'state-123',
+          nonce: 'nonce-123',
+          email: 'student@std.neu.edu.tr',
+          googleSub: 'google-sub-123',
+        }),
+      ).rejects.toThrow('Account is suspended or blocked');
+    } finally {
+      if (previousClientId) {
+        process.env.GOOGLE_CLIENT_ID = previousClientId;
+      } else {
+        delete process.env.GOOGLE_CLIENT_ID;
+      }
+    }
+  });
 });
