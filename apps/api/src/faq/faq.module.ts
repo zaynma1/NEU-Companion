@@ -11,6 +11,7 @@ import { AnswerVote } from './entities/answer-vote.entity';
 import { Report } from './entities/report.entity';
 import { AuthModule } from '../auth/auth.module';
 import { RolesGuard } from '../auth/roles.guard';
+import { User } from '../auth/entities/user.entity';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { RolesGuard } from '../auth/roles.guard';
       QuestionVote,
       AnswerVote,
       Report,
+      User,
     ]),
   ],
   controllers: [FaqController],
