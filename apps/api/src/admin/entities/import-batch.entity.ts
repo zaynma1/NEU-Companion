@@ -5,7 +5,7 @@ import type { DatasetVersion } from './dataset-version.entity';
 
 @Entity('import_batches')
 @Index(['term', 'createdAt'])
-@Index(['uploaded_by', 'createdAt'])
+@Index(['uploadedBy', 'createdAt'])
 @Index(['status', 'createdAt'])
 export class ImportBatch {
   @PrimaryGeneratedColumn('uuid')
@@ -15,10 +15,10 @@ export class ImportBatch {
   term!: string;
 
   @ManyToOne('User', { nullable: false, onDelete: 'RESTRICT' })
-  @JoinColumn({ name: 'uploaded_by' })
+  @JoinColumn({ name: 'uploadedBy' })
   uploadedBy!: User;
 
-  @Column({ type: 'uuid', name: 'uploaded_by' })
+  @Column({ type: 'uuid', name: 'uploadedBy' })
   uploadedById!: string;
 
   @Column({ type: 'text', name: 'file_name' })
