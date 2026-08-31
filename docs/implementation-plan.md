@@ -192,7 +192,7 @@ This plan tracks the actual engineering work for the NEU Companion platform afte
 ## 14. Security and operational hardening
 
 - [x] Add rate limiting
-- [ ] Add CSRF / cookie security hardening
+- [x] Add CSRF / cookie security hardening
 - [ ] Add secure session rotation strategy
 - [x] Add challenge replay protection
 - [x] Add secret management via environment variables
@@ -207,12 +207,12 @@ This plan tracks the actual engineering work for the NEU Companion platform afte
 - [x] Add unit tests for auth/session logic
 - [x] Add integration tests for DB access and auth flows
 - [ ] Add E2E tests for key user journeys
-- [ ] Add API contract validation
+- [x] Add API contract validation
 - [ ] Add mobile UI regression checks for iOS and Android
 - [ ] Add device preview checklist for small phone sizes, notch/Dynamic Island handling, and safe-area layout
 - [x] Add smoke tests for Docker + Postgres + Redis startup
-- [ ] Add deployment configuration for staging/prod
-- [ ] Add release checklist and rollback procedure
+- [x] Add deployment configuration for staging/prod
+- [x] Add release checklist and rollback procedure
 
 ---
 
@@ -235,7 +235,8 @@ Based on the current repo state and the milestone tracker, the project has alrea
 - [x] Finalize deployment strategy and environment rollout steps.
 - [x] Document and validate the database migration process.
 - [x] Complete the incident response playbook and operational runbooks.
-- [ ] Continue with mobile work only after the production-prep checks are closed.
+- [x] Frontend handoff gate passed after deployment hardening and API contract freeze.
+- [ ] Start mobile app scaffolding and first auth screens.
 
 This keeps the plan aligned with the milestone tracker: the core product backend is complete, and the remaining work is operational hardening before broader release readiness.
 

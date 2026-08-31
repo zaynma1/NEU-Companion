@@ -13,6 +13,7 @@ import {
 import type { Request, Response } from 'express';
 import { AuthGuard } from './auth.guard';
 import { AuthService } from './auth.service';
+import { getSessionCookieOptions } from '../config/runtime.config';
 
 
 class SignInDto {
@@ -190,12 +191,8 @@ export class AuthController {
       body.deviceFingerprint ?? 'google-oauth-device',
     );
 
-    res.cookie('neu_companion_session', token, {
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: false,
-      maxAge: 1000 * 60 * 60 * 24 * 7,
-    });
+    const cookieOptions = getSessionCookieOptions(process.env.NODE_ENV);
+    res.cookie('neu_companion_session', token, cookieOptions);
 
     return {
       ok: true,
@@ -317,12 +314,8 @@ export class AuthController {
 
     const { session, token } = await this.authService.createSession(user.id, body.deviceFingerprint);
 
-    res.cookie('neu_companion_session', token, {
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: false,
-      maxAge: 1000 * 60 * 60 * 24 * 7,
-    });
+    const cookieOptions = getSessionCookieOptions(process.env.NODE_ENV);
+    res.cookie('neu_companion_session', token, cookieOptions);
 
     return {
       ok: true,
