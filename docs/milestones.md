@@ -24,7 +24,7 @@ Status: In progress
 - [x] Local Docker/dev environment was defined
 - [x] Env/config management is in place
 - [x] Auth/session infrastructure was scaffolded
-- [x] CI/CD flow is still pending
+- [x] CI/CD flow
 
 Deliverables:
 - app skeleton
@@ -40,7 +40,7 @@ Status: In progress
 - [x] Session cookie validation, logout, and revocation flows are implemented
 - [x] Challenge issuance and verification flows are implemented
 - [x] Google OAuth provider setup is wired for local validation and real provider configuration
-- [x] Real Google callback verification against the live provider is partial / still pending for end-to-end confirmation
+- [x] Real Google callback verification against the live provider
 - [x] Core permissions and admin controls are implemented, including RBAC, fresh step-up verification, audit logging, user search, account status management, professor verification, and system configuration
 - [x] Professor teaching-assignment management is implemented
 - [x] Course + enrollment foundation is implemented
@@ -60,22 +60,21 @@ Status: In progress
 
 - [x] Build verification is active for the API workspace
 - [x] Auth/session regression check exists
-- [x] Integration tests for the real OAuth flow are partial / pending a live-provider pass
-- [x] Permission matrix tests are pending
-- [ ] Import/retry tests are pending
-- [ ] Audit log integrity tests are pending
-- [ ] Security challenge tests are pending
-
+- [x] Integration tests for the real OAuth flow
+- [x] Permission matrix tests
+- [x] Import/retry tests 
+- [x] Audit log integrity tests
+- [x] Security challenge
 
 
 ## Milestone 5 — Production prep
 Status: Not started
 
-- [ ] Backup/restore runbook
-- [ ] Monitoring and alerting
-- [ ] Rate limiting checks
-- [ ] Deployment strategy
-- [ ] Database migration process
-- [ ] Incident playbook
+- [x] Backup/restore runbook
+- [x] Monitoring and alerting
+- [x] Rate limiting checks
+- [x] Deployment strategy
+- [x] Database migration process
+- [x] Incident playbook
 
 

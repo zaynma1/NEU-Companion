@@ -398,6 +398,62 @@ export class AdminImportService {
   }
 
   /**
+   * Retry a failed import batch by resetting validation state and clearing stale errors.
+   */
+  async retryImport(
+    batchId: string,
+    userId: string,
+    newFileBuffer?: Buffer,
+    newFileName?: string,
+  ): Promise<ImportBatch> {
+    const batch = await this.importBatchRepository.findOne({
+      where: { id: batchId },
+      relations: { rowErrors: true },
+    });
+
+    if (!batch) {
+      throw new NotFoundException(`Import batch ${batchId} not found`);
+    }
+
+    if (batch.status !== 'failed') {
+      throw new BadRequestException('Import batch must be in failed state before retry');
+    }
+
+    if (batch.uploadedById !== userId) {
+      throw new ForbiddenException('You can only retry your own import batch');
+    }
+
+    if (batch.rowErrors?.length) {
+      await this.importRowErrorRepository.delete({ importBatchId: batchId });
+    }
+
+    batch.status = 'validating';
+    batch.rowCount = 0;
+    batch.appliedAt = null;
+    batch.expiredAt = null;
+
+    if (newFileBuffer) {
+      batch.contentHash = this.calculateHash(newFileBuffer);
+      batch.fileName = newFileName ?? batch.fileName;
+      if (newFileName) {
+        batch.fileName = newFileName;
+      }
+    }
+
+    const savedBatch = await this.importBatchRepository.save(batch);
+
+    if (newFileBuffer) {
+      setTimeout(() => {
+        void this.validateImportAsync(savedBatch.id, newFileBuffer).catch((err) => {
+          console.error(`Import retry validation failed for batch ${savedBatch.id}:`, err);
+        });
+      }, 0);
+    }
+
+    return savedBatch;
+  }
+
+  /**
    * Calculate SHA256 hash of file content for idempotency
    */
   private calculateHash(buffer: Buffer): string {

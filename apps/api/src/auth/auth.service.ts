@@ -2,7 +2,7 @@ import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { OAuth2Client } from 'google-auth-library';
 import { createHash, randomUUID } from 'crypto';
-import { IsNull, Repository } from 'typeorm';
+import { IsNull, MoreThanOrEqual, Repository } from 'typeorm';
 import { AllowedEmailDomain } from './entities/allowed-email-domain.entity';
 import { AuditLogEntry } from './entities/audit-log-entry.entity';
 import { AuthAttempt } from './entities/auth-attempt.entity';
@@ -36,7 +36,18 @@ export type VerifyChallengeInput = {
   purpose?: string;
 };
 
+export type AuditLogWriteInput = {
+  actorId?: string | null;
+  actorLabelSnapshot?: string | null;
+  actionType: string;
+  targetEntity: string;
+  targetId?: string | null;
+  beforeValue?: Record<string, unknown> | null;
+  afterValue?: Record<string, unknown> | null;
+};
+
 const SUPPORTED_SYSTEM_CONFIG_KEYS = new Set(['active_term', 'campus_timezone']);
+const SENSITIVE_AUDIT_FIELD_RE = /(email|name|phone|student|staff|department|address|token|secret|password|contact|profile|full_name|fullName|google)/i;
 
 @Injectable()
 export class AuthService {
@@ -74,6 +85,49 @@ export class AuthService {
     @InjectRepository(SecurityAlert)
     private readonly securityAlertRepository: Repository<SecurityAlert> = null as any,
   ) {}
+
+  private stripSensitiveAuditFields(value: unknown): unknown {
+    if (value == null) {
+      return value;
+    }
+
+    if (Array.isArray(value)) {
+      return value.map((item) => this.stripSensitiveAuditFields(item));
+    }
+
+    if (typeof value === 'object') {
+      const result: Record<string, unknown> = {};
+
+      for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
+        if (SENSITIVE_AUDIT_FIELD_RE.test(key)) {
+          continue;
+        }
+
+        result[key] = this.stripSensitiveAuditFields(item);
+      }
+
+      return result;
+    }
+
+    return value;
+  }
+
+  async writeAuditLog(input: AuditLogWriteInput): Promise<AuditLogEntry> {
+    const sanitizedBefore = this.stripSensitiveAuditFields(input.beforeValue ?? null) as Record<string, unknown> | null;
+    const sanitizedAfter = this.stripSensitiveAuditFields(input.afterValue ?? null) as Record<string, unknown> | null;
+
+    const entry = this.auditLogRepository.create({
+      actorId: input.actorId ?? null,
+      actorLabelSnapshot: input.actorLabelSnapshot ?? null,
+      actionType: input.actionType,
+      targetEntity: input.targetEntity,
+      targetId: input.targetId ?? null,
+      beforeValue: sanitizedBefore,
+      afterValue: sanitizedAfter,
+    });
+
+    return this.auditLogRepository.save(entry);
+  }
 
   async findOrCreateUser(input: {
     email: string;
@@ -168,17 +222,15 @@ export class AuthService {
     }
 
     if (this.auditLogRepository) {
-      await this.auditLogRepository.save(
-        this.auditLogRepository.create({
-          actorId: actorUserId ?? null,
-          actorLabelSnapshot: actorUserId ? `admin:${actorUserId}` : 'system-role-update',
-          actionType: 'role_changed',
-          targetEntity: 'users',
-          targetId: userId,
-          beforeValue: { role: previousRole },
-          afterValue: { role },
-        }),
-      );
+      await this.writeAuditLog({
+        actorId: actorUserId ?? null,
+        actorLabelSnapshot: actorUserId ? `admin:${actorUserId}` : 'system-role-update',
+        actionType: 'role_changed',
+        targetEntity: 'users',
+        targetId: userId,
+        beforeValue: { role: previousRole },
+        afterValue: { role },
+      });
     }
 
     return saved;
@@ -191,21 +243,19 @@ export class AuthService {
     finalRole?: 'student' | 'professor' | 'admin';
     notes?: string;
   }): Promise<void> {
-    await this.auditLogRepository.save(
-      this.auditLogRepository.create({
-        actorId: input.actorUserId,
-        actorLabelSnapshot: `admin:${input.actorUserId}`,
-        actionType: 'pending_review_decision',
-        targetEntity: 'pending_review_items',
-        targetId: input.targetUserId,
-        beforeValue: { decision: input.decision },
-        afterValue: {
-          decision: input.decision,
-          finalRole: input.finalRole ?? null,
-          notes: input.notes ?? null,
-        },
-      }),
-    );
+    await this.writeAuditLog({
+      actorId: input.actorUserId,
+      actorLabelSnapshot: `admin:${input.actorUserId}`,
+      actionType: 'pending_review_decision',
+      targetEntity: 'pending_review_items',
+      targetId: input.targetUserId,
+      beforeValue: { decision: input.decision },
+      afterValue: {
+        decision: input.decision,
+        finalRole: input.finalRole ?? null,
+        notes: input.notes ?? null,
+      },
+    });
   }
 
   async listPendingReviewItems(): Promise<PendingReviewItem[]> {
@@ -733,6 +783,66 @@ export class AuthService {
     return this.authAttemptRepository.save(attempt);
   }
 
+  private async createSecurityAlert(input: {
+    userId?: string | null;
+    alertType: 'account_abuse_threshold' | 'suspicious_signin' | 'malware_scan_failure';
+    relatedAuthAttemptId?: string | null;
+  }): Promise<SecurityAlert | null> {
+    if (!this.securityAlertRepository) {
+      return null;
+    }
+
+    const alert = this.securityAlertRepository.create({
+      userId: input.userId ?? null,
+      alertType: input.alertType,
+      relatedAuthAttemptId: input.relatedAuthAttemptId ?? null,
+    });
+
+    return this.securityAlertRepository.save(alert);
+  }
+
+  async assertClientRateLimit(clientFingerprint: string, clientIpHash?: string | null): Promise<void> {
+    const windowStart = new Date(Date.now() - 1000 * 60 * 15);
+    const failedOutcomes = new Set([
+      'domain_rejected',
+      'state_nonce_mismatch',
+      'account_blocked',
+      'challenge_failed',
+    ]);
+
+    const attempts = await this.authAttemptRepository.find({
+      where: {
+        clientFingerprint,
+      },
+    });
+
+    const recentFailedAttempts = attempts.filter((attempt) => {
+      if (!attempt.occurredAt || attempt.occurredAt < windowStart) {
+        return false;
+      }
+
+      if (clientIpHash && attempt.clientIpHash && attempt.clientIpHash !== clientIpHash) {
+        return false;
+      }
+
+      return failedOutcomes.has(attempt.outcome);
+    });
+
+    if (recentFailedAttempts.length >= 5) {
+      const relatedAttempt = recentFailedAttempts[recentFailedAttempts.length - 1];
+      await this.createSecurityAlert({
+        userId: relatedAttempt.accountUserId ?? null,
+        alertType: 'account_abuse_threshold',
+        relatedAuthAttemptId: relatedAttempt.id ?? null,
+      });
+
+      this.logger.warn(
+        `Authentication abuse threshold reached for client fingerprint=${clientFingerprint}; attempts=${recentFailedAttempts.length}`,
+      );
+      throw new UnauthorizedException('Too many failed authentication attempts. Please try again later.');
+    }
+  }
+
   async createChallenge(input: IssueChallengeInput): Promise<{
     challengeId: string;
     challengeSecret: string;
@@ -793,6 +903,10 @@ export class AuthService {
       throw new UnauthorizedException('Challenge device fingerprint mismatch');
     }
 
+    if (input.purpose && challenge.purpose !== input.purpose) {
+      throw new UnauthorizedException('Challenge purpose mismatch');
+    }
+
     if (challenge.accountUserId && input.accountUserId && challenge.accountUserId !== input.accountUserId) {
       throw new UnauthorizedException('Challenge account mismatch');
     }
@@ -814,6 +928,7 @@ export class AuthService {
 
       if (nextFailedAttempts >= 5) {
         await this.challengeRepository.update(challenge.id, {
+          failedAttempts: 5,
           consumedAt: new Date(),
         });
       }
@@ -937,17 +1052,15 @@ export class AuthService {
     }
 
     if (this.auditLogRepository) {
-      await this.auditLogRepository.save(
-        this.auditLogRepository.create({
-          actorId: actorUserId ?? null,
-          actorLabelSnapshot: actorUserId ? `admin:${actorUserId}` : 'system',
-          actionType: 'account_status_changed',
-          targetEntity: 'users',
-          targetId: userId,
-          beforeValue: { accountStatus: previousStatus },
-          afterValue: { accountStatus },
-        }),
-      );
+      await this.writeAuditLog({
+        actorId: actorUserId ?? null,
+        actorLabelSnapshot: actorUserId ? `admin:${actorUserId}` : 'system',
+        actionType: 'account_status_changed',
+        targetEntity: 'users',
+        targetId: userId,
+        beforeValue: { accountStatus: previousStatus },
+        afterValue: { accountStatus },
+      });
     }
 
     return saved;
@@ -977,17 +1090,15 @@ export class AuthService {
     const saved = await this.userRepository.save(user);
 
     if (this.auditLogRepository) {
-      await this.auditLogRepository.save(
-        this.auditLogRepository.create({
-          actorId: actorUserId ?? null,
-          actorLabelSnapshot: actorUserId ? `admin:${actorUserId}` : 'system',
-          actionType: 'professor_verification_granted',
-          targetEntity: 'users',
-          targetId: userId,
-          beforeValue: { professorVerifiedAt: previousVerificationAt ?? null },
-          afterValue: { professorVerifiedAt: saved.professorVerifiedAt },
-        }),
-      );
+      await this.writeAuditLog({
+        actorId: actorUserId ?? null,
+        actorLabelSnapshot: actorUserId ? `admin:${actorUserId}` : 'system',
+        actionType: 'professor_verification_granted',
+        targetEntity: 'users',
+        targetId: userId,
+        beforeValue: { professorVerifiedAt: previousVerificationAt ?? null },
+        afterValue: { professorVerifiedAt: saved.professorVerifiedAt },
+      });
     }
 
     return saved;
@@ -1013,17 +1124,15 @@ export class AuthService {
     const saved = await this.userRepository.save(user);
 
     if (this.auditLogRepository) {
-      await this.auditLogRepository.save(
-        this.auditLogRepository.create({
-          actorId: actorUserId ?? null,
-          actorLabelSnapshot: actorUserId ? `admin:${actorUserId}` : 'system',
-          actionType: 'professor_verification_revoked',
-          targetEntity: 'users',
-          targetId: userId,
-          beforeValue: { professorVerifiedAt: previousVerificationAt ?? null },
-          afterValue: { professorVerifiedAt: null },
-        }),
-      );
+      await this.writeAuditLog({
+        actorId: actorUserId ?? null,
+        actorLabelSnapshot: actorUserId ? `admin:${actorUserId}` : 'system',
+        actionType: 'professor_verification_revoked',
+        targetEntity: 'users',
+        targetId: userId,
+        beforeValue: { professorVerifiedAt: previousVerificationAt ?? null },
+        afterValue: { professorVerifiedAt: null },
+      });
     }
 
     return saved;
@@ -1084,17 +1193,15 @@ export class AuthService {
     const saved = await this.allowedEmailDomainRepository.save(entity);
 
     if (this.auditLogRepository) {
-      await this.auditLogRepository.save(
-        this.auditLogRepository.create({
-          actorId: input.actorUserId ?? null,
-          actorLabelSnapshot: input.actorUserId ? `admin:${input.actorUserId}` : 'system',
-          actionType: 'allowed_email_domain_added',
-          targetEntity: 'allowed_email_domains',
-          targetId: saved.id,
-          beforeValue: null,
-          afterValue: { emailDomain: normalized, allowSubdomains: saved.allowSubdomains },
-        }),
-      );
+      await this.writeAuditLog({
+        actorId: input.actorUserId ?? null,
+        actorLabelSnapshot: input.actorUserId ? `admin:${input.actorUserId}` : 'system',
+        actionType: 'allowed_email_domain_added',
+        targetEntity: 'allowed_email_domains',
+        targetId: saved.id,
+        beforeValue: null,
+        afterValue: { emailDomain: normalized, allowSubdomains: saved.allowSubdomains },
+      });
     }
 
     return saved;
@@ -1119,17 +1226,15 @@ export class AuthService {
     const saved = await this.allowedEmailDomainRepository.save(existing);
 
     if (this.auditLogRepository) {
-      await this.auditLogRepository.save(
-        this.auditLogRepository.create({
-          actorId: input.actorUserId ?? null,
-          actorLabelSnapshot: input.actorUserId ? `admin:${input.actorUserId}` : 'system',
-          actionType: 'allowed_email_domain_updated',
-          targetEntity: 'allowed_email_domains',
-          targetId: saved.id,
-          beforeValue: previous,
-          afterValue: { allowSubdomains: saved.allowSubdomains },
-        }),
-      );
+      await this.writeAuditLog({
+        actorId: input.actorUserId ?? null,
+        actorLabelSnapshot: input.actorUserId ? `admin:${input.actorUserId}` : 'system',
+        actionType: 'allowed_email_domain_updated',
+        targetEntity: 'allowed_email_domains',
+        targetId: saved.id,
+        beforeValue: previous,
+        afterValue: { allowSubdomains: saved.allowSubdomains },
+      });
     }
 
     return saved;
@@ -1155,17 +1260,15 @@ export class AuthService {
     await this.allowedEmailDomainRepository.remove(existing);
 
     if (this.auditLogRepository) {
-      await this.auditLogRepository.save(
-        this.auditLogRepository.create({
-          actorId: actorUserId ?? null,
-          actorLabelSnapshot: actorUserId ? `admin:${actorUserId}` : 'system',
-          actionType: 'allowed_email_domain_removed',
-          targetEntity: 'allowed_email_domains',
-          targetId: existing.id,
-          beforeValue: { emailDomain: normalized, allowSubdomains: existing.allowSubdomains },
-          afterValue: null,
-        }),
-      );
+      await this.writeAuditLog({
+        actorId: actorUserId ?? null,
+        actorLabelSnapshot: actorUserId ? `admin:${actorUserId}` : 'system',
+        actionType: 'allowed_email_domain_removed',
+        targetEntity: 'allowed_email_domains',
+        targetId: existing.id,
+        beforeValue: { emailDomain: normalized, allowSubdomains: existing.allowSubdomains },
+        afterValue: null,
+      });
     }
   }
 
@@ -1253,17 +1356,15 @@ export class AuthService {
     const saved = await this.securityAlertRepository.save(alert);
 
     if (this.auditLogRepository) {
-      await this.auditLogRepository.save(
-        this.auditLogRepository.create({
-          actorId: actorUserId ?? null,
-          actorLabelSnapshot: actorUserId ? `admin:${actorUserId}` : 'system',
-          actionType: 'security_alert_acknowledged',
-          targetEntity: 'security_alerts',
-          targetId: saved.id,
-          beforeValue: { acknowledgedAt: null },
-          afterValue: { acknowledgedAt: saved.acknowledgedAt },
-        }),
-      );
+      await this.writeAuditLog({
+        actorId: actorUserId ?? null,
+        actorLabelSnapshot: actorUserId ? `admin:${actorUserId}` : 'system',
+        actionType: 'security_alert_acknowledged',
+        targetEntity: 'security_alerts',
+        targetId: saved.id,
+        beforeValue: { acknowledgedAt: null },
+        afterValue: { acknowledgedAt: saved.acknowledgedAt },
+      });
     }
 
     return saved;
@@ -1294,17 +1395,15 @@ export class AuthService {
     const saved = await this.systemConfigRepository.save(config);
 
     if (this.auditLogRepository) {
-      await this.auditLogRepository.save(
-        this.auditLogRepository.create({
-          actorId: actorUserId ?? null,
-          actorLabelSnapshot: actorUserId ? `admin:${actorUserId}` : 'system',
-          actionType: 'system_config_updated',
-          targetEntity: 'system_config',
-          targetId: key,
-          beforeValue: { key },
-          afterValue: { key, value },
-        }),
-      );
+      await this.writeAuditLog({
+        actorId: actorUserId ?? null,
+        actorLabelSnapshot: actorUserId ? `admin:${actorUserId}` : 'system',
+        actionType: 'system_config_updated',
+        targetEntity: 'system_config',
+        targetId: key,
+        beforeValue: { key },
+        afterValue: { key, value },
+      });
     }
 
     return saved;

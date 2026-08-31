@@ -256,14 +256,20 @@ export class AdminImportController {
       throw new BadRequestException('User not authenticated');
     }
 
-    // For now, just acknowledge the retry request
-    // In production, this would re-validate and potentially re-upload
+    const batch = await this.adminImportService.retryImport(
+      batchId,
+      user.id,
+      file?.buffer,
+      file?.originalname,
+    );
+
     return {
       status: 'success',
       message: 'Retry request accepted',
       data: {
-        batchId,
-        status: 'validating',
+        batchId: batch.id,
+        status: batch.status,
+        term: batch.term,
       },
     };
   }

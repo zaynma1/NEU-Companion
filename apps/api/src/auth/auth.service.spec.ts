@@ -22,6 +22,7 @@ describe('AuthService challenge flow', () => {
   const authAttemptRepository: any = {
     create: jest.fn(),
     save: jest.fn(),
+    find: jest.fn(),
   };
 
   const challengeRepository: any = {
@@ -57,6 +58,14 @@ describe('AuthService challenge flow', () => {
     save: jest.fn(),
   };
 
+  const securityAlertRepository: any = {
+    create: jest.fn(),
+    save: jest.fn(),
+    findOne: jest.fn(),
+    find: jest.fn(),
+    createQueryBuilder: jest.fn(),
+  };
+
   const authService = new AuthService(
     userRepository as any,
     sessionRepository as any,
@@ -66,10 +75,13 @@ describe('AuthService challenge flow', () => {
     auditLogRepository as any,
     systemConfigRepository as any,
     deletionRequestRepository as any,
+    {} as any,
+    securityAlertRepository as any,
   );
 
   beforeEach(() => {
     jest.resetAllMocks();
+    auditLogRepository.create.mockImplementation((value: any) => value);
   });
 
   it('issues a challenge and verifies it without exposing the stored secret', async () => {
@@ -122,6 +134,111 @@ describe('AuthService challenge flow', () => {
     expect(challengeRepository.update).toHaveBeenCalled();
   });
 
+  it('rejects challenges whose device fingerprint or purpose does not match the issued context', async () => {
+    const challenge = {
+      id: 'challenge-456',
+      authAttemptId: 'attempt-456',
+      accountUserId: 'user-456',
+      sessionId: null,
+      deviceFingerprint: 'trusted-device',
+      purpose: 'step_up',
+      challengeType: 'step_up' as const,
+      challengeSecretHash: createHash('sha256').update('correct-secret').digest('hex'),
+      issuedAt: new Date(),
+      expiresAt: new Date(Date.now() + 600000),
+      consumedAt: null,
+      failedAttempts: 0,
+    };
+
+    challengeRepository.findOne.mockResolvedValue(challenge);
+
+    await expect(
+      authService.verifyChallenge({
+        challengeId: challenge.id,
+        response: 'wrong-secret',
+        accountUserId: challenge.accountUserId,
+        deviceFingerprint: 'different-device',
+        purpose: 'step_up',
+      }),
+    ).rejects.toThrow('Challenge device fingerprint mismatch');
+
+    await expect(
+      authService.verifyChallenge({
+        challengeId: challenge.id,
+        response: 'correct-secret',
+        accountUserId: challenge.accountUserId,
+        deviceFingerprint: challenge.deviceFingerprint,
+        purpose: 'google_reauth',
+      }),
+    ).rejects.toThrow('Challenge purpose mismatch');
+  });
+
+  it('invalidates a challenge after five failed verification attempts', async () => {
+    const challenge = {
+      id: 'challenge-789',
+      authAttemptId: 'attempt-789',
+      accountUserId: 'user-789',
+      sessionId: null,
+      deviceFingerprint: 'device-789',
+      purpose: 'suspicious_login',
+      challengeType: 'suspicious_login' as const,
+      challengeSecretHash: createHash('sha256').update('correct-secret').digest('hex'),
+      issuedAt: new Date(),
+      expiresAt: new Date(Date.now() + 600000),
+      consumedAt: null,
+      failedAttempts: 4,
+    };
+
+    challengeRepository.findOne.mockResolvedValue(challenge);
+    challengeRepository.update.mockResolvedValue({});
+
+    await expect(
+      authService.verifyChallenge({
+        challengeId: challenge.id,
+        response: 'wrong-secret',
+        accountUserId: challenge.accountUserId,
+        deviceFingerprint: challenge.deviceFingerprint,
+        purpose: challenge.purpose,
+      }),
+    ).rejects.toThrow('Challenge verification failed');
+
+    expect(challengeRepository.update).toHaveBeenCalledWith(challenge.id, {
+      failedAttempts: 5,
+      consumedAt: expect.any(Date),
+    });
+  });
+
+  it('rejects a client after the failed-auth threshold is reached in the rolling window', async () => {
+    authAttemptRepository.find.mockResolvedValue(
+      Array.from({ length: 5 }, (_, index) => ({
+        id: `attempt-${index}`,
+        clientFingerprint: 'device-rate-limit',
+        outcome: 'challenge_failed',
+        occurredAt: new Date(Date.now() - 1000 * 60 * 5),
+      })),
+    );
+    securityAlertRepository.create.mockImplementation((value: any) => value);
+    securityAlertRepository.save.mockResolvedValue({
+      id: 'alert-1',
+      alertType: 'account_abuse_threshold',
+      userId: null,
+      relatedAuthAttemptId: 'attempt-4',
+      triggeredAt: new Date(),
+      acknowledgedAt: null,
+    });
+
+    await expect(
+      authService.assertClientRateLimit('device-rate-limit'),
+    ).rejects.toThrow('Too many failed authentication attempts. Please try again later.');
+
+    expect(securityAlertRepository.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        alertType: 'account_abuse_threshold',
+        relatedAuthAttemptId: expect.any(String),
+      }),
+    );
+  });
+
   it('returns a local dev OAuth URL when no Google client is configured', () => {
     const previousClientId = process.env.GOOGLE_CLIENT_ID;
     const previousNodeEnv = process.env.NODE_ENV;
@@ -157,6 +274,38 @@ describe('AuthService challenge flow', () => {
 
     await expect(authService.ensureFreshStepUp('session-1')).rejects.toThrow(
       'Fresh step-up verification is required',
+    );
+  });
+
+  it('redacts personal data before persisting audit entries', async () => {
+    await authService.writeAuditLog({
+      actorId: 'actor-123',
+      actorLabelSnapshot: 'admin:actor-123',
+      actionType: 'role_changed',
+      targetEntity: 'users',
+      targetId: 'user-456',
+      beforeValue: {
+        email: 'student@std.neu.edu.tr',
+        fullName: 'Jane Doe',
+        role: 'student',
+      },
+      afterValue: {
+        email: 'student@std.neu.edu.tr',
+        fullName: 'Jane Doe',
+        role: 'professor',
+      },
+    });
+
+    expect(auditLogRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actorId: 'actor-123',
+        actorLabelSnapshot: 'admin:actor-123',
+        actionType: 'role_changed',
+        targetEntity: 'users',
+        targetId: 'user-456',
+        beforeValue: { role: 'student' },
+        afterValue: { role: 'professor' },
+      }),
     );
   });
 

@@ -93,6 +93,9 @@ export default registerAs(
         password: parsed.password || 'postgres',
         database: parsed.pathname.replace(/^\//, '') || 'postgres',
         entities: [...appEntities],
+        migrations: ['dist/migrations/*.js'],
+        migrationsTableName: 'typeorm_migrations',
+        migrationsRun: false,
         synchronize: process.env.NODE_ENV !== 'production',
         logging: process.env.NODE_ENV === 'development',
         ssl:
@@ -110,6 +113,9 @@ export default registerAs(
       password: process.env.POSTGRES_PASSWORD ?? 'neu_companion',
       database: process.env.POSTGRES_DB ?? 'neu_companion',
       entities: [...appEntities],
+      migrations: ['dist/migrations/*.js'],
+      migrationsTableName: 'typeorm_migrations',
+      migrationsRun: false,
       synchronize: process.env.NODE_ENV !== 'production',
       logging: process.env.NODE_ENV === 'development',
       ssl:

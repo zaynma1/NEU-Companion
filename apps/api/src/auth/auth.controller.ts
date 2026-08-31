@@ -154,6 +154,13 @@ export class AuthController {
                 lastName: callbackBody.lastName,
               });
     } catch (error) {
+      await this.authService.recordAuthAttempt({
+        clientFingerprint: callbackBody.deviceFingerprint ?? 'google-oauth-device',
+        clientIpHash: undefined,
+        accountUserId: undefined,
+        outcome: 'state_nonce_mismatch',
+      });
+
       this.logger.error(
         `Google callback verification failed: code=${callbackBody.code ? 'present' : 'missing'}, state=${callbackBody.state ?? '<missing>'}, nonce=${callbackBody.nonce ?? '<missing>'}, email=${email ?? '<missing>'}, googleSub=${callbackBody.googleSub ?? '<missing>'}`,
         error instanceof Error ? error.stack : String(error),
@@ -164,6 +171,8 @@ export class AuthController {
     this.logger.debug(
       `Google callback verified identity: email=${verified.email}, googleSub=${verified.googleSub}, firstName=${verified.firstName ?? '<empty>'}, lastName=${verified.lastName ?? '<empty>'}`,
     );
+
+    await this.authService.assertClientRateLimit(callbackBody.deviceFingerprint ?? 'google-oauth-device');
 
     const user = await this.authService.findOrCreateUser({
       email: verified.email,
