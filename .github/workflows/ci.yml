@@ -71,7 +71,10 @@ jobs:
           set -euo pipefail
 
           npm --workspace apps/api run build
-
+          echo "--- DIRECTORY CONTENTS OF DIST ---"
+          ls -la apps/api/dist/
+          echo "----------------------------------"
+          
           test -f apps/api/dist/main.js
           test -f apps/api/dist/app.module.js
 
