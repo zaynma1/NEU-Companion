@@ -22,10 +22,10 @@ Deliverables:
 Status: Not started
 
 - [ ] Decide on the mobile stack and app architecture (React Native + Expo)
-- [ ] Create a dedicated mobile app workspace under the monorepo
-- [ ] Set up the app package, TypeScript, and Expo tooling
-- [ ] Add app config and environment management for local/dev/staging
-- [ ] Add base app shell with safe-area and app theme scaffolding
+- [x] Create a dedicated mobile app workspace under the monorepo
+- [x] Set up the app package, TypeScript, and Expo tooling
+- [x] Add app config and environment management for local/dev/staging
+- [x] Add base app shell with safe-area and app theme scaffolding
 - [ ] Add navigation shell and root layout
 - [ ] Add API client layer and base request configuration
 - [ ] Add auth session bootstrap and redirect handling

@@ -1,57 +1,285 @@
 # NEU Companion — Project Context for Copilot
 
 This file is auto-loaded into every Copilot Chat/agent session in this repo.
-Do not ask the user to re-explain stack, structure, or docs — read the files below.
+Do not ask the user to re-explain stack, structure, docs, or visual identity — read the
+files and rules below first.
 
 ## What this project is
-NEU Companion is a university companion platform. Monorepo, Node.js/TypeScript.
+NEU Companion is a university companion platform: course enrollment, timetable, announcements,
+identity/RBAC, and admin controls. Monorepo, Node.js/TypeScript, npm workspaces (`apps/*`).
 
-## Source of truth (always check these before answering or coding)
-- Requirements (business rules, actor model, acceptance criteria): `docs/requirements.md`
-- Database design (schema, constraints, invariants): `docs/database-design.md`
-- API domain map (domain boundaries, design principles): `docs/api-design/api-domains.md`
-- Per-domain API contracts: `docs/api-design/domain-XX-*.md` (9 domains, see map above for which file owns which capability)
-- Milestones / current progress (what's done, what's next): `docs/milestones.md`
-- Implementation plan (granular task breakdown): `docs/implementation-plan.md`
-- Full tech stack detail: `TECH_STACK.md`
+## Current phase — read this before doing anything
+- **Backend (`apps/api`) is built.** NestJS + TypeORM/Postgres. Treat `docs/api-design/domain-XX-*.md`
+  contracts as final — match request/response shapes exactly, never invent fields or endpoints.
+- **Frontend has not started yet.** The plan is `docs/frontend-milestones.md` — a **React Native +
+  Expo mobile app**, not a web app. Milestone 0 (backend handoff gate) is complete. Milestone 1
+  (app bootstrap: create `apps/mobile`, TS/Expo tooling, nav shell, API client, auth bootstrap) is
+  next and not started.
+- The `apps/*` workspace glob in the root `package.json` already covers a new `apps/mobile` package —
+  no workspace config changes needed to create it.
+- Always confirm live status against `docs/frontend-milestones.md` directly — it moves faster than
+  this file.
 
-Never invent requirements, endpoints, or schema. If something needed isn't covered
-in these docs, say so explicitly instead of guessing.
+## Source of truth (check before answering or coding)
+- Frontend plan / current milestone: `docs/frontend-milestones.md`
+- Requirements: `docs/requirements.md`
+- Database design: `docs/database-design.md`
+- API domain map: `docs/api-design/api-domains.md`
+- Per-domain API contracts: `docs/api-design/domain-XX-*.md`
+- Backend tech detail: `docs/TECH_STACK.md`
 
-## Tech stack (summary — see TECH_STACK.md for full detail)
-- Backend: NestJS 11 (Express adapter), TypeScript 5.9, Node 22
-- ORM: TypeORM, PostgreSQL 16 (Docker)
-- Cache/session store: Redis 7 (Docker) — reserved, not fully wired yet
-- Auth: Google OAuth via `google-auth-library`, cookie-based sessions, custom RBAC guards/decorators
-- Validation: class-validator / class-transformer
-- Testing: Jest + ts-jest + @nestjs/testing
+Never invent requirements, endpoints, schema, or screens. If something needed isn't covered in
+these docs, say so explicitly instead of guessing.
 
-## Repo structure
-- `apps/api` — the NestJS backend (the only app workspace right now; a mobile app
-  under `apps/` is planned per the implementation plan but not started)
-- `docs/` — all source-of-truth documentation described above
+## Frontend tech stack (working defaults — treat as decided unless a milestone doc says otherwise)
+- **React Native + Expo**, TypeScript (strict)
+- **Navigation:** Expo Router (file-based; also gives clean deep-link handling for the Google
+  OAuth → cookie-session redirect flow that Milestone 2 needs)
+- **Animation:** `react-native-reanimated` v3 + `react-native-gesture-handler` — see Part 2, non-negotiable
+- **Server/session state:** TanStack Query — gives the loading/error/retry states Milestones 2–3
+  explicitly require, on top of a typed API client layer
+- **Images:** `expo-image` (not core `Image`)
+- **Haptics:** `expo-haptics` — see Part 2, tied to the same interaction moments as the press-state animation
+- **Icons:** `lucide-react-native`
+- **Fonts:** `@expo-google-fonts/space-grotesk`, `@expo-google-fonts/inter`, `@expo-google-fonts/jetbrains-mono`
+- **Auth note:** the API uses cookie-based sessions, not JWTs. React Native doesn't get browser
+  cookie jars for free — the HTTP client and the OAuth web→app handoff need explicit cookie
+  handling. Flag this as a design decision to make in Milestone 2, don't silently assume it works.
+
+---
+
+# Part 1 — Creative Blueprint (mandatory visual identity)
+
+Do not fall back to default Expo/React Native look and feel: no default system-blue tint
+(`#007AFF`), no default Material ripple, no generic sans-serif everywhere, no emoji-as-icons,
+no purple-to-blue "AI" gradients. Every screen must read as intentionally designed, not scaffolded.
+
+**Direction:** dark-first premium academic identity. Both themes are fully supported and
+system-driven at runtime, but design and QA new screens in dark mode first — the crimson brand
+red against near-black is the more distinctive, premium expression of this palette. Use the
+brand red as an **accent, not wallpaper**: CTAs, active states, selected indicators, links, the
+brand mark. Never as a large fill or full-screen background — restraint is what makes it read
+premium instead of loud.
+
+## Color tokens
+Never hardcode hex values in a component. These live in one theme module and are consumed via
+a `useTheme()` hook (or equivalent), keyed by the active color scheme.
+
+```ts
+// theme/colors.ts
+export const colors = {
+  light: {
+    primary: '#BB1B3A',
+    primaryPressed: '#972037',
+    onPrimary: '#FFFFFF',
+    bg: '#FAFAFA',
+    surface: '#FFFFFF',
+    border: '#E5E5E5',
+    textPrimary: '#1A1A1A',
+    textSecondary: '#6B6B6B',
+    textMuted: '#9B9B9B',
+    success: '#15803D',
+    warning: '#B45309',
+    info: '#1D4ED8',
+    danger: '#DC2626',
+  },
+  dark: {
+    primary: '#BB1B3A',
+    primaryPressed: '#D41137', // note: lifts brighter on press in dark mode, not darker
+    onPrimary: '#FFFFFF',
+    bg: '#121212',
+    surface: '#1E1E1E',
+    border: '#2E2E2E',
+    textPrimary: '#F5F5F5',
+    textSecondary: '#B0B0B0',
+    textMuted: '#7A7A7A',
+    success: '#4ADE80',
+    warning: '#FBBF24',
+    info: '#60A5FA',
+    danger: '#F87171',
+  },
+} as const;
+```
+
+Usage rules:
+- `textPrimary` — headings, values, anything the user is reading for content
+- `textSecondary` — supporting text, field labels
+- `textMuted` — timestamps, placeholders, disabled state, helper text
+- Semantic colors map to real states only: `success` = enrollment/import confirmed, `warning` =
+  needs attention (pending review, soft conflict), `info` = neutral system notices, `danger` =
+  security alerts, destructive actions, validation errors. Never use them decoratively.
+- `primaryPressed` is the **pressed/active** state color for interactive elements (there's no
+  hover on touch), not a secondary brand color.
+
+## Typography
+Two-family system, loaded via `expo-font` — never ship on the OS default font.
+
+| Role | Family | Weight | Size / Line height |
+|---|---|---|---|
+| Display | Space Grotesk | 700 | 32 / 40 |
+| H1 | Space Grotesk | 600 | 28 / 34 |
+| H2 | Space Grotesk | 600 | 22 / 28 |
+| H3 | Space Grotesk | 600 | 18 / 24 |
+| Body Large | Inter | 400 | 16 / 24 |
+| Body | Inter | 400 | 14 / 20 |
+| Caption | Inter | 500 | 12 / 16 |
+| Overline/label | Inter | 600, uppercase, +0.6 tracking | 11 / 14 |
+| Code / course codes / times | JetBrains Mono | 500 | matches surrounding body size |
+
+Space Grotesk carries the brand's confident, geometric personality on anything a user scans
+(headings, empty states, onboarding). Inter carries density and legibility everywhere information
+is actually read (lists, forms, body copy). JetBrains Mono is used narrowly — course codes,
+timetable slot times, IDs — as a deliberate technical accent, not a general-purpose font.
+
+## Spacing & radius
+4px base spacing scale: `xs 4 · sm 8 · md 12 · lg 16 · xl 20 · 2xl 24 · 3xl 32 · 4xl 40 · 5xl 48 · 6xl 64`
+
+Radius scale: `sm 8` (chips, small inputs) · `md 12` (buttons, inputs) · `lg 16` (cards, sheets) ·
+`xl 24` (modals, hero surfaces) · `pill 999` (tags, avatars, segmented controls).
+
+## Elevation — two levels only
+Flat, hairline-bordered surfaces over heavy shadow/skeuomorphism.
+1. **Resting** — `border` token only, no shadow. Default for cards, list rows, inputs.
+2. **Raised** — used only for modals, bottom sheets, and the FAB: subtle shadow
+   (`opacity 0.06–0.08`, `radius 12–16`, `y-offset 2–4`), never a hard drop shadow.
+
+## Iconography
+`lucide-react-native` exclusively — stroke width **1.75**, sizes **16 / 20 / 24** only, colored
+via the current text/icon token (never a hardcoded hex). Do not mix icon libraries or fall back
+to emoji for status/navigation.
+
+## Component conventions
+- Primary button: filled, `radius md`, `primary` bg / `onPrimary` text, `primaryPressed` on press.
+- Secondary/tertiary buttons: hairline `border`, transparent bg, `textPrimary` label.
+- Cards: `surface` bg, `border` hairline, `radius lg`, `lg` internal padding.
+- Status badges (enrollment state, import result, security alert): `pill` radius, semantic color
+  at ~15% opacity as background with the full-strength semantic color as text/icon — never a
+  solid semantic fill behind white text except for `danger` alerts that need to interrupt.
+- Tab bar / active nav state: `primary` for the active icon+label, `textMuted` for inactive —
+  no background pill behind the active tab, keep it minimal.
+
+---
+
+# Part 2 — Animation & Performance Guardrails (non-negotiable)
+
+This is a mobile app; janky animation is immediately felt and immediately looks cheap. These
+rules exist because AI-generated animation code habitually animates the wrong properties.
+
+## Engine
+`react-native-reanimated` v3 + `react-native-gesture-handler` for **all** interactive and
+gesture-driven animation. Never use the core `Animated` API for anything beyond a one-off fade
+already using `useNativeDriver`. Never use `LayoutAnimation` for anything the user triggers
+directly (list reorder on swipe, sheet open) — it's unmeasurable and uncontrollable; use
+Reanimated's `entering`/`exiting`/`layout` transitions instead.
+
+## The one hard rule
+**Only animate `transform` (translateX/Y, scale, rotate) and `opacity`.** These run as worklets
+on the UI thread and never trigger a layout pass. Never animate `width`, `height`, `top`, `left`,
+`right`, `bottom`, `margin`, `padding`, or `flexBasis` frame-by-frame — each of these forces a
+layout recalculation of the node and its siblings on every frame and is the single most common
+cause of dropped frames in RN apps.
+
+Translate every "I want to animate size/position" instinct into a transform:
+- Growing/shrinking a surface → `scale`, not `width`/`height`
+- Sliding a panel in/out → `translateX`/`translateY`, not `left`/`top`/`margin`
+- Expanding a card → animate a `scaleY` wrapper, or use Reanimated's measured `Layout` transition
+  API (which itself only writes to transform under the hood) — never manually tween `height`.
+- Color transitions (e.g. status change) → `interpolateColor` inside a worklet is fine; it's
+  still a UI-thread operation, not a layout one.
+
+## Motion tokens
+One shared set, no per-component invented durations.
+
+```ts
+// theme/motion.ts
+export const duration = { instant: 100, fast: 150, base: 250, slow: 350, deliberate: 500 };
+export const easing = {
+  standard: Easing.bezier(0.22, 1, 0.36, 1), // controlled ease-out, the "premium" curve
+  entrance: Easing.out(Easing.cubic),
+  exit: Easing.in(Easing.cubic),
+};
+export const spring = { damping: 18, stiffness: 180, mass: 0.9 }; // snappy, low bounce — not cartoonish
+```
+
+## Rules by category
+- **Press states** (buttons, cards, list rows): `scale` to `0.97` + slight `opacity` drop, `fast`
+  (150ms), `standard` easing. This is the app's core tactile feedback — keep it consistent everywhere.
+- **Screen transitions:** use Expo Router / native-stack defaults; only reach for a custom
+  shared-element transition where it earns its cost (e.g. course card → course detail), `base`
+  (250ms) duration.
+- **Tab transitions:** switching bottom tabs is instant — no slide, no crossfade between tab
+  roots, no re-mounting animation. The only thing that animates is the active icon/label color
+  (`interpolateColor`, `fast`, 150ms) per the tab bar convention in Part 1. This matches native
+  tab-bar behavior on both platforms and keeps navigation feeling immediate rather than
+  decorative; do not add a custom tab transition. Each tab preserves its own navigation stack/
+  scroll position when switching away and back (Expo Router default) — don't reset it.
+- **List item entrance:** stagger only on short, above-the-fold lists (<10 visible items) using
+  Reanimated's `FadeIn`/`SlideIn` layout animations, capped at `fast` (150–200ms) per item. Never
+  stagger a long feed — it reads as slow, not premium.
+- **Loading states:** shimmer via `opacity` interpolation on a worklet loop, never via a
+  `backgroundColor` JS-thread interval.
+- **Swipe-to-dismiss / pull-to-refresh:** `react-native-gesture-handler` driving shared values,
+  never `PanResponder`.
+
+## Haptics
+`expo-haptics`, fired from the same handler as the press-state animation — never on its own timer
+or decoupled from a user gesture.
+- **Light impact** — default for any pressable: buttons, cards, list rows, tab switches.
+- **Medium impact** — confirming a committed action: enrollment submitted, RSVP, destructive
+  confirm (delete, drop course).
+- **Success / warning / error notification haptic** — reserved for async results the user is
+  waiting on (enrollment confirmed, import failed, conflict detected) — not for routine
+  navigation or every button press.
+- Respect the system haptics setting; gate decorative-only haptic flourishes (none currently
+  planned) behind the same reduced-motion check used for animation.
+
+## Reduced motion
+Check `AccessibilityInfo.isReduceMotionEnabled()` (via a shared hook) and gate every **decorative**
+animation behind it — entrance stagger, shimmer, parallax. Functional feedback (a button
+registering a press) can stay, minimized to an opacity change only.
+
+## List & render performance
+- Any list over ~20 items uses `FlashList` (or `FlatList` with `getItemLayout` if row height is
+  fixed) — never a `ScrollView.map()`.
+- `renderItem` components are `React.memo`'d; callbacks passed to list rows are `useCallback`'d.
+  No inline arrow functions or inline style objects inside a list row — both defeat memoization
+  and reallocate every render.
+- Stable `keyExtractor` using real IDs, never array index.
+- All remote images go through `expo-image` with a `cachePolicy` and a placeholder — never core
+  `Image` for course/avatar/announcement imagery.
+- No nested `ScrollView`/`FlatList` combinations.
+- Expensive derived values (filtering/sorting a course list, computing timetable conflicts) are
+  `useMemo`'d, not recomputed on every render.
+
+## Explicit anti-patterns — never introduce these
+- `setInterval`/`setState` driving a frame-by-frame animation loop
+- Animating `width`/`height`/`margin`/`top`/`left` for any transition
+- `LayoutAnimation.configureNext` for user-triggered UI (fine only for rare, non-interactive,
+  low-frequency changes)
+- Inline anonymous functions or style objects inside list `renderItem`
+- A new spring/timing config invented per component instead of using the shared `motion.ts` tokens
+- Decorative animation with no reduced-motion gate
+- Haptic feedback fired independent of a user gesture, or overused on every micro-interaction
+
+---
 
 ## Working conventions
-1. Domains follow user-facing business capabilities, not raw DB tables (see api-domains.md
-   design principles) — don't restructure this without flagging it.
-2. Authorization is a shared enforcement layer (guards/decorators), not its own domain/module.
-3. Audit logging is a side effect of business flows, not a feature to build standalone.
-4. Follow the existing NestJS module structure under `apps/api/src` — one module per domain,
-   decorator-based DI, repository pattern via TypeORM.
-5. Any schema or requirements change must be flagged as a deviation, not made silently.
-6. Match the request/response shapes already defined in the relevant
-   `docs/api-design/domain-XX-*.md` file exactly — don't invent new fields or endpoints.
+1. Screens map to the 9 API domains, not ad hoc groupings — check `docs/api-design/api-domains.md`
+   before naming a new screen/route.
+2. One theme module (`colors.ts`, `typography.ts`, `spacing.ts`, `motion.ts`), consumed everywhere
+   via hooks — no component reaches for a raw hex value or a magic number for spacing/duration.
+3. Match API request/response shapes from `docs/api-design/domain-XX-*.md` exactly.
+4. Any deviation from this visual system or these animation rules is flagged explicitly, not
+   made silently — same standard the backend docs already hold for schema/requirement changes.
 
-## Current state (high-level — see docs/milestones.md for the live detail)
-- Milestone 1 (design/docs) and most of Milestone 2 (project scaffolding) are complete.
-- Milestone 3 (core backend): Auth/Identity domain is largely implemented (sessions, RBAC,
-  admin controls, challenge flows). Google OAuth live-callback verification is still partial.
-  Courses/Enrollment, Timetable, Notifications, Admin Import, Deletion, FAQ/Moderation, and
-  Profiles/Office Hours domains have not been started yet.
-- Always confirm current status against `docs/milestones.md` directly — it's updated more
-  often than this file.
+## Finishing a task
+1. Once a task is done, `git add` / `git commit` / `git push` — don't leave finished work
+   uncommitted or unpushed for the user to handle manually.
+2. If the task needs manual testing (a real device/simulator check, an OAuth flow, anything that
+   can't be verified from code alone), say so and wait to be told it passed before marking the
+   milestone item as complete in `docs/frontend-milestones.md`. Don't mark a milestone item done
+   on the strength of code review alone when it needed manual verification.
 
-## When starting a new chat/session for a specific task
-Don't wait to be told the stack or where docs live — it's all above. Just ask (or infer from
-`docs/milestones.md`) which specific task/milestone is being worked on, then go straight to
-the relevant domain doc(s).
+## When starting a new session for a specific task
+Don't wait to be told the stack, docs, or design system — it's all above. Confirm which milestone
+item is being worked on against `docs/frontend-milestones.md`, then go straight to it.
