@@ -68,6 +68,7 @@ jobs:
           NODE_ENV: test
           PORT: 3001
         run: |
+          npm --workspace apps/api run build
           npm --workspace apps/api run start:prod &
           SERVER_PID=$!
 
