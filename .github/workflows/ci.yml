@@ -68,8 +68,14 @@ jobs:
           NODE_ENV: test
           PORT: 3001
         run: |
+          set -euo pipefail
+
           npm --workspace apps/api run build
-          npm --workspace apps/api run start:prod &
+
+          test -f apps/api/dist/main.js
+          test -f apps/api/dist/app.module.js
+
+          npm --workspace apps/api run start:prod > /tmp/neu-api-smoke.log 2>&1 &
           SERVER_PID=$!
 
           echo "Waiting for API to start..."
@@ -87,6 +93,7 @@ jobs:
           done
 
           echo "✗ API failed to become ready"
+          cat /tmp/neu-api-smoke.log || true
           kill $SERVER_PID 2>/dev/null || true
           wait $SERVER_PID 2>/dev/null || true
           exit 1
