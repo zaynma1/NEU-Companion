@@ -25,10 +25,27 @@ export function startGoogleLogin(): Promise<GoogleStartResponse> {
   return api.post<GoogleStartResponse>('v1/auth/google/start');
 }
 
+export async function completeLocalGoogleLogin(): Promise<AuthSession | null> {
+  const response = await api.get<{ ok: true; mode: 'local-dev'; provider: 'google'; callbackUrl: string; state: string; nonce: string; mockUser: { email: string; firstName: string; lastName: string; googleSub: string } }>('v1/auth/google/local?mode=local-dev');
+
+  const payload = {
+    email: response.mockUser.email,
+    firstName: response.mockUser.firstName,
+    lastName: response.mockUser.lastName,
+    googleSub: response.mockUser.googleSub,
+    state: response.state,
+    nonce: response.nonce,
+    deviceFingerprint: 'mobile-local-dev-device',
+  };
+
+  await api.post('v1/auth/google/callback', payload);
+  return validateSession();
+}
+
 export async function validateSession(): Promise<AuthSession | null> {
   try {
     const savedSession = await loadSession();
-    if (!savedSession || isSessionExpired(savedSession)) {
+    if (savedSession && isSessionExpired(savedSession)) {
       await clearSession();
       return null;
     }
@@ -52,7 +69,10 @@ export async function validateSession(): Promise<AuthSession | null> {
     await saveSession(updatedSession);
     return updatedSession;
   } catch (error) {
-    await clearSession();
+    const savedSession = await loadSession();
+    if (savedSession && isSessionExpired(savedSession)) {
+      await clearSession();
+    }
     return null;
   }
 }

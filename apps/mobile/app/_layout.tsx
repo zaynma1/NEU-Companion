@@ -10,37 +10,33 @@ function AppShell() {
   const { colors, typography, spacing } = useTheme();
   const { status } = useAuthBootstrap();
 
+  const initialRouteName = status === 'guest' ? '(auth)' : '(app)';
+
   if (status === 'loading') {
     return (
-      <SafeAreaProvider>
-        <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.bg }]}>
-          <StatusBar style={colors.bg === '#121212' ? 'light' : 'dark'} />
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="small" color={colors.primary} />
-            <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.md }]}>
-              Loading session…
-            </Text>
-          </View>
-        </SafeAreaView>
-      </SafeAreaProvider>
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.bg }]}>
+        <StatusBar style={colors.bg === '#121212' ? 'light' : 'dark'} />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="small" color={colors.primary} />
+          <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.md }]}>
+            Loading session…
+          </Text>
+        </View>
+      </SafeAreaView>
     );
   }
 
-  const initialRouteName = status === 'authenticated' || status === 'pending' || status === 'onboarding_required' ? '(app)' : '(auth)';
-
   return (
-    <SafeAreaProvider>
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.bg }]}>
-        <StatusBar style={colors.bg === '#121212' ? 'light' : 'dark'} />
-        <Stack
-          initialRouteName={initialRouteName}
-          screenOptions={{
-            headerShown: false,
-            contentStyle: { backgroundColor: colors.bg },
-          }}
-        />
-      </SafeAreaView>
-    </SafeAreaProvider>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.bg }]}>
+      <StatusBar style={colors.bg === '#121212' ? 'light' : 'dark'} />
+      <Stack
+        initialRouteName={initialRouteName}
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: colors.bg },
+        }}
+      />
+    </SafeAreaView>
   );
 }
 

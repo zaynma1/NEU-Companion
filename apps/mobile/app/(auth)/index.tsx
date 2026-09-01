@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ApiClientError } from '../../src/api';
-import { startGoogleLogin } from '../../src/auth';
+import { completeLocalGoogleLogin, startGoogleLogin } from '../../src/auth';
 import { clearSession, saveSession } from '../../src/auth/session';
 import { useTheme } from '../../src/theme';
 
@@ -116,6 +116,7 @@ function DebugSessionTester() {
 }
 
 export default function AuthScreen() {
+  const router = useRouter();
   const { colors, spacing, typography } = useTheme();
   const [isStarting, setIsStarting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -126,6 +127,17 @@ export default function AuthScreen() {
 
     try {
       const response = await startGoogleLogin();
+
+      if (response.localDevFallback) {
+        const session = await completeLocalGoogleLogin();
+        if (session) {
+          router.replace('/');
+          return;
+        }
+
+        throw new Error('The local-dev Google sign-in flow did not create a valid session.');
+      }
+
       const canOpenUrl = await Linking.canOpenURL(response.authUrl);
 
       if (!canOpenUrl) {
