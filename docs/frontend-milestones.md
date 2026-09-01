@@ -21,17 +21,17 @@ Deliverables:
 ## Milestone 1 — Frontend foundation and app bootstrap
 Status: Not started
 
-- [ ] Decide on the mobile stack and app architecture (React Native + Expo)
+- [x] Decide on the mobile stack and app architecture (React Native + Expo)
 - [x] Create a dedicated mobile app workspace under the monorepo
 - [x] Set up the app package, TypeScript, and Expo tooling
 - [x] Add app config and environment management for local/dev/staging
 - [x] Add base app shell with safe-area and app theme scaffolding
-- [ ] Add navigation shell and root layout
-- [ ] Add API client layer and base request configuration
-- [ ] Add auth session bootstrap and redirect handling
-- [ ] Add local preview flow for simulator and physical device
+- [x] Add navigation shell and root layout
+- [x] Add API client layer and base request configuration
+- [X] Add auth session bootstrap and redirect handling
+- [x] Add local preview flow for simulator and physical device
 
-Deliverables:
+Deliverables
 - working app scaffold
 - base navigation structure
 - typed API client layer
@@ -40,11 +40,11 @@ Deliverables:
 ## Milestone 2 — Authentication and onboarding flow
 Status: Not started
 
-- [ ] Build login entry screen and Google sign-in flow
-- [ ] Add session restore on app launch
-- [ ] Add guest / authenticated routing logic
-- [ ] Add logout and session expiry handling
-- [ ] Add pending-user onboarding screens
+- [ ] Build login entry screen and Google sign-in flow pending untill "Add secure handling of cookies/session state for web-to-app bridging" is completed. continue from here untill that point is reached.
+- [x] Add session restore on app launch
+- [x] Add guest / authenticated routing logic
+- [x] Add logout and session expiry handling
+- [x] Add pending-user onboarding screens
 - [ ] Add role-aware first-run experience
 - [ ] Add loading, error, and retry states for auth flows
 - [ ] Add secure handling of cookies/session state for web-to-app bridging

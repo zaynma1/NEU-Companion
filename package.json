@@ -4,6 +4,12 @@
   "workspaces": [
     "apps/*"
   ],
+  "overrides": {
+    "react": "19.2.3"
+  },
+  "devDependencies": {
+    "react": "19.2.3"
+  },
   "scripts": {
     "dev:api": "npm --workspace apps/api run start:dev",
     "build": "npm --workspace apps/api run build",

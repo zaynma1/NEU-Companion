@@ -49,7 +49,7 @@ const config: ExpoConfig = {
   web: {
     favicon: './assets/favicon.png',
   },
-  plugins: ['expo-font'],
+  plugins: ['expo-font', 'expo-router'],
   extra: {
     env: runtimeEnv,
   },
