@@ -1,5 +1,6 @@
-import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
 import type { User } from '../../auth/entities/user.entity';
+import type { PersonalEventException } from './personal-event-exception.entity';
 
 @Entity('personal_events')
 export class PersonalEvent {
@@ -45,4 +46,7 @@ export class PersonalEvent {
 
   @UpdateDateColumn({ type: 'timestamptz', name: 'updated_at' })
   updatedAt!: Date;
+
+  @OneToMany('PersonalEventException', (exception: PersonalEventException) => exception.personalEvent)
+  exceptions!: PersonalEventException[];
 }

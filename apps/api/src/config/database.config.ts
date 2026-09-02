@@ -32,6 +32,7 @@ import { NotificationPreference } from '../notifications/entities/notification-p
 import { Notification } from '../notifications/entities/notification.entity';
 import { OfficialEvent } from '../timetable/entities/official-event.entity';
 import { PersonalEvent } from '../timetable/entities/personal-event.entity';
+import { PersonalEventException } from '../timetable/entities/personal-event-exception.entity';
 import { ContactMethod } from '../profile/entities/contact-method.entity';
 import { Profile } from '../profile/entities/profile.entity';
 import { ProfessorScheduleDocument } from '../profile/entities/professor-schedule-document.entity';
@@ -54,6 +55,7 @@ const appEntities = [
   Enrollment,
   ProfessorTeachingClaim,
   PersonalEvent,
+  PersonalEventException,
   OfficialEvent,
   NotificationPreference,
   MutedCourse,
