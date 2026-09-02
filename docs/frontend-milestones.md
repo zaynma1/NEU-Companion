@@ -19,7 +19,7 @@ Deliverables:
 - app handoff checklist for mobile integration
 
 ## Milestone 1 — Frontend foundation and app bootstrap
-Status: Not started
+Status: comlpete
 
 - [x] Decide on the mobile stack and app architecture (React Native + Expo)
 - [x] Create a dedicated mobile app workspace under the monorepo
@@ -38,7 +38,7 @@ Deliverables
 - environment-aware auth bootstrap
 
 ## Milestone 2 — Authentication and onboarding flow
-Status: Not started
+Status: started
 
 - [ ] Build login entry screen and Google sign-in flow pending untill "Add secure handling of cookies/session state for web-to-app bridging" is completed. continue from here untill that point is reached.
 - [x] Add session restore on app launch

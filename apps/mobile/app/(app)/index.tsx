@@ -128,26 +128,9 @@ export default function AppHomeScreen() {
           style={{
             width: '100%',
             maxWidth: 420,
-            borderWidth: 1,
-            borderColor: colors.border,
-            borderRadius: 16,
-            backgroundColor: colors.surface,
             padding: spacing['3xl'],
           }}
         >
-          <View
-            style={{
-              alignSelf: 'flex-start',
-              backgroundColor: `${colors.warning}1A`,
-              borderRadius: 999,
-              paddingHorizontal: spacing.md,
-              paddingVertical: spacing.sm,
-              marginBottom: spacing.lg,
-            }}
-          >
-            <Text style={[typography.overline, { color: colors.warning }]}>Account review</Text>
-          </View>
-
           <Text style={[typography.h1, { color: colors.textPrimary, marginBottom: spacing.md }]}>Access pending</Text>
 
           <Text style={[typography.bodyLarge, { color: colors.textSecondary, marginBottom: spacing.lg }]}>
@@ -156,20 +139,17 @@ export default function AppHomeScreen() {
 
           <View
             style={{
-              borderWidth: 1,
-              borderColor: colors.border,
+              backgroundColor: `${colors.warning}1A`,
               borderRadius: 12,
-              backgroundColor: colors.bg,
               padding: spacing.lg,
               marginBottom: spacing.lg,
             }}
           >
-            <Text style={[typography.caption, { color: colors.textMuted, marginBottom: spacing.sm }]}>Signed in as</Text>
+            <Text style={[typography.caption, { color: colors.textMuted, marginBottom: spacing.xs ?? spacing.sm }]}>Signed in as</Text>
             <Text style={[typography.bodyLarge, { color: colors.textPrimary }]}>{session?.email ?? 'Pending verification'}</Text>
           </View>
 
           <View style={{ marginBottom: spacing['2xl'] }}>
-            <Text style={[typography.caption, { color: colors.textMuted, marginBottom: spacing.sm }]}>You can still:</Text>
             <Text style={[typography.body, { color: colors.textSecondary }]}>• review your sign-in status</Text>
             <Text style={[typography.body, { color: colors.textSecondary }]}>• wait for role confirmation</Text>
             <Text style={[typography.body, { color: colors.textSecondary }]}>• sign out safely</Text>
@@ -209,26 +189,9 @@ export default function AppHomeScreen() {
           style={{
             width: '100%',
             maxWidth: 420,
-            borderWidth: 1,
-            borderColor: colors.border,
-            borderRadius: 16,
-            backgroundColor: colors.surface,
             padding: spacing['3xl'],
           }}
         >
-          <View
-            style={{
-              alignSelf: 'flex-start',
-              backgroundColor: `${colors.info}1A`,
-              borderRadius: 999,
-              paddingHorizontal: spacing.md,
-              paddingVertical: spacing.sm,
-              marginBottom: spacing.lg,
-            }}
-          >
-            <Text style={[typography.overline, { color: colors.info }]}>First run</Text>
-          </View>
-
           <Text style={[typography.h1, { color: colors.textPrimary, marginBottom: spacing.md }]}>Welcome to NEU Companion</Text>
 
           <Text style={[typography.bodyLarge, { color: colors.textSecondary, marginBottom: spacing.lg }]}>
@@ -237,21 +200,18 @@ export default function AppHomeScreen() {
 
           <View
             style={{
-              borderWidth: 1,
-              borderColor: colors.border,
+              backgroundColor: `${colors.info}1A`,
               borderRadius: 12,
-              backgroundColor: colors.bg,
               padding: spacing.lg,
               marginBottom: spacing.lg,
             }}
           >
-            <Text style={[typography.caption, { color: colors.textMuted, marginBottom: spacing.sm }]}>Signed in as</Text>
+            <Text style={[typography.caption, { color: colors.textMuted, marginBottom: spacing.xs ?? spacing.sm }]}>Signed in as</Text>
             <Text style={[typography.bodyLarge, { color: colors.textPrimary }]}>{session?.email ?? 'NEU account'}</Text>
             <Text style={[typography.caption, { color: colors.textSecondary, marginTop: spacing.sm }]}>Role: {session?.role ?? 'student'}</Text>
           </View>
 
           <View style={{ marginBottom: spacing['2xl'] }}>
-            <Text style={[typography.caption, { color: colors.textMuted, marginBottom: spacing.sm }]}>Required next steps</Text>
             <Text style={[typography.body, { color: colors.textSecondary }]}>• confirm your academic details</Text>
             <Text style={[typography.body, { color: colors.textSecondary }]}>• select your role context</Text>
             <Text style={[typography.body, { color: colors.textSecondary }]}>• unlock course and timetable access</Text>
@@ -308,14 +268,9 @@ export default function AppHomeScreen() {
         style={{
           width: '100%',
           maxWidth: 420,
-          borderWidth: 1,
-          borderColor: colors.border,
-          borderRadius: 16,
-          backgroundColor: colors.surface,
           padding: spacing['3xl'],
         }}
       >
-        <Text style={[typography.overline, { color: colors.primary, marginBottom: spacing.md }]}>Authenticated shell</Text>
         <Text style={[typography.h1, { color: colors.textPrimary, marginBottom: spacing.sm }]}>Home dashboard</Text>
         <Text style={[typography.body, { color: colors.textSecondary, marginBottom: spacing.lg }]}>
           This is the app entry for an active session.

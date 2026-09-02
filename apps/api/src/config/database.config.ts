@@ -96,7 +96,7 @@ export default registerAs(
         migrations: ['dist/migrations/*.js'],
         migrationsTableName: 'typeorm_migrations',
         migrationsRun: false,
-        synchronize: process.env.NODE_ENV !== 'production',
+        synchronize: false,
         logging: process.env.NODE_ENV === 'development',
         ssl:
           process.env.POSTGRES_SSL === 'true'
@@ -116,7 +116,7 @@ export default registerAs(
       migrations: ['dist/migrations/*.js'],
       migrationsTableName: 'typeorm_migrations',
       migrationsRun: false,
-      synchronize: process.env.NODE_ENV !== 'production',
+      synchronize: false,
       logging: process.env.NODE_ENV === 'development',
       ssl:
         process.env.POSTGRES_SSL === 'true'

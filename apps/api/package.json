@@ -11,7 +11,7 @@
     "test": "NODE_OPTIONS=--experimental-vm-modules jest --runInBand",
     "test:watch": "NODE_OPTIONS=--experimental-vm-modules jest --watch",
     "test:cov": "NODE_OPTIONS=--experimental-vm-modules jest --coverage",
-    "typeorm": "ts-node --project tsconfig.json ./node_modules/typeorm/cli.js",
+    "typeorm": "ts-node --project tsconfig.json ../../node_modules/typeorm/cli.js",
     "migration:run": "npm run typeorm -- migration:run -d src/config/typeorm-cli.config.ts",
     "migration:revert": "npm run typeorm -- migration:revert -d src/config/typeorm-cli.config.ts",
     "migration:generate": "npm run typeorm -- migration:generate -d src/config/typeorm-cli.config.ts"

@@ -1,0 +1,22 @@
+1. Database and authentication setup:
+    - [x] Choose Supabase as the hosted PostgreSQL provider
+    - [x] Use separate Supabase projects for development and production
+    - [x] Keep NestJS as the only application data access layer
+    - [x] Keep the existing NestJS Google OAuth verification and cookie-backed sessions
+    - [ ] Add a staging Supabase project only when a separately deployed pre-production environment is needed
+    - [x] Configure the development Supabase database
+    - [x] Run and verify TypeORM migrations against development
+    - [ ] Configure the production Supabase database
+    - [ ] Run and verify TypeORM migrations against production
+    - [ ] Verify the NestJS authentication flow against each environment
+    
+
+2. Back-end validation:
+    - check what is implemented, what isnt, and if there is any bugs / bad implementation that needs fixing. and checking if the API design documents match the current implementation.
+
+3. Setup implementation plan for both back-end and front-end
+    - if there is anything wrong with the back-end, list it in the plan, and for the rest of the front end, including how animations should look, how buttons should behave, etc.
+
+4. Strip out and delete all unecessary or redundant documents 
+
+5. modify .github to include valid information with no inconsistancies.

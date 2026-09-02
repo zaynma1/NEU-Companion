@@ -165,10 +165,7 @@ export default function AuthScreen() {
           <Text style={[typography.h3, { color: colors.onPrimary }]}>NEU</Text>
         </View>
 
-        <Text style={[typography.overline, { color: colors.primary, marginTop: spacing['3xl'] }]}>
-          NEU Companion
-        </Text>
-        <Text style={[typography.display, { color: colors.textPrimary, marginTop: spacing.sm }]}>
+        <Text style={[typography.display, { color: colors.textPrimary, marginTop: spacing['3xl'] }]}>
           Your campus, in step.
         </Text>
         <Text style={[typography.bodyLarge, { color: colors.textSecondary, marginTop: spacing.md }]}>
