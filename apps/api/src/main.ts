@@ -2,6 +2,9 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 import { validateRuntimeEnvironment } from './config/runtime.config';
+import { resolveCorsOrigin } from './config/runtime.config';
+import { CsrfMiddleware } from './auth/csrf.middleware';
+import { AuthService } from './auth/auth.service';
 
 const cookieParser = require('cookie-parser');
 
@@ -16,10 +19,12 @@ async function bootstrap() {
   );
 
   app.enableCors({
-    origin: true,
+    origin: (requestOrigin, callback) => callback(null, resolveCorsOrigin(requestOrigin)),
     credentials: true,
   });
   app.use(cookieParser());
+  const csrfMiddleware = new CsrfMiddleware(app.get(AuthService));
+  app.use(csrfMiddleware.use.bind(csrfMiddleware));
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,

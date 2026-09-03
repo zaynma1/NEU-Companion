@@ -1,7 +1,7 @@
 import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { OAuth2Client } from 'google-auth-library';
-import { createHash, randomUUID } from 'crypto';
+import { createHash, createHmac, randomUUID, timingSafeEqual } from 'crypto';
 import { IsNull, MoreThanOrEqual, Repository } from 'typeorm';
 import { AllowedEmailDomain } from './entities/allowed-email-domain.entity';
 import { AuditLogEntry } from './entities/audit-log-entry.entity';
@@ -313,14 +313,37 @@ export class AuthService {
     return createHash('sha256').update(token).digest('hex');
   }
 
+  private getCsrfSecret(): string {
+    return process.env.CSRF_SECRET ?? 'development-only-csrf-secret';
+  }
+
+  getCsrfTokenForSession(sessionId: string): string {
+    return createHmac('sha256', this.getCsrfSecret()).update(sessionId).digest('hex');
+  }
+
+  async validateCsrfToken(sessionId: string, token: string): Promise<boolean> {
+    const session = await this.sessionRepository.findOne({ where: { id: sessionId, revokedAt: IsNull() } });
+    if (!session || !session.csrfTokenHash) {
+      return false;
+    }
+
+    const expectedHash = Buffer.from(session.csrfTokenHash, 'hex');
+    const actualHash = Buffer.from(this.hashToken(token), 'hex');
+    return expectedHash.length === actualHash.length && timingSafeEqual(expectedHash, actualHash);
+  }
+
   async createSession(userId: string, deviceFingerprint?: string): Promise<SessionWithToken> {
     const token = randomUUID();
     const now = new Date();
+    const sessionId = randomUUID();
+    const csrfToken = this.getCsrfTokenForSession(sessionId);
 
     const session = this.sessionRepository.create({
+      id: sessionId,
       userId,
       user: { id: userId } as User,
       tokenHash: this.hashToken(token),
+      csrfTokenHash: this.hashToken(csrfToken),
       lastActiveAt: now,
       idleExpiresAt: new Date(now.getTime() + 1000 * 60 * 60 * 24 * 14),
       absoluteExpiresAt: new Date(now.getTime() + 1000 * 60 * 60 * 24 * 30),
@@ -333,6 +356,23 @@ export class AuthService {
     const saved = await this.sessionRepository.save(session);
 
     return { session: saved, token };
+  }
+
+  async getCsrfToken(sessionId: string): Promise<string> {
+    const session = await this.sessionRepository.findOne({
+      where: { id: sessionId, revokedAt: IsNull() },
+    });
+    if (!session) {
+      throw new UnauthorizedException('Session is invalid or expired');
+    }
+
+    const token = this.getCsrfTokenForSession(sessionId);
+    const tokenHash = this.hashToken(token);
+    if (session.csrfTokenHash !== tokenHash) {
+      await this.sessionRepository.update(sessionId, { csrfTokenHash: tokenHash });
+    }
+
+    return token;
   }
 
   async findSessionByToken(token: string): Promise<Session | null> {

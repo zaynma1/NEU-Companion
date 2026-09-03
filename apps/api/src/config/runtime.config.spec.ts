@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach, afterEach } from '@jest/globals';
-import { getSessionCookieOptions, validateRuntimeEnvironment } from './runtime.config';
+import { getAllowedOrigins, getSessionCookieOptions, resolveCorsOrigin, validateRuntimeEnvironment } from './runtime.config';
 
 describe('runtime config hardening', () => {
   const originalEnv = { ...process.env };
@@ -24,6 +24,16 @@ describe('runtime config hardening', () => {
       secure: false,
       sameSite: 'lax',
     });
+  });
+
+  it('uses an explicit CORS origin allow-list', () => {
+    process.env.CORS_ORIGINS = 'https://app.example.edu, https://admin.example.edu';
+
+    expect(getAllowedOrigins()).toEqual(['https://app.example.edu', 'https://admin.example.edu']);
+    expect(getAllowedOrigins()).not.toContain('https://evil.example');
+    expect(resolveCorsOrigin('https://app.example.edu')).toBe('https://app.example.edu');
+    expect(resolveCorsOrigin('https://evil.example')).toBe(false);
+    expect(resolveCorsOrigin(undefined)).toBe(true);
   });
 
   it('fails fast when required production env vars are missing', () => {

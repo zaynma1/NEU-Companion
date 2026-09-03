@@ -9,19 +9,33 @@ NEU Companion is a university companion platform: course enrollment, timetable, 
 identity/RBAC, and admin controls. Monorepo, Node.js/TypeScript, npm workspaces (`apps/*`).
 
 ## Current phase — read this before doing anything
-- **Backend (`apps/api`) is built.** NestJS + TypeORM/Postgres. Treat `docs/api-design/domain-XX-*.md`
-  contracts as final — match request/response shapes exactly, never invent fields or endpoints.
-- **Frontend has not started yet.** The plan is `docs/frontend-milestones.md` — a **React Native +
-  Expo mobile app**, not a web app. Milestone 0 (backend handoff gate) is complete. Milestone 1
-  (app bootstrap: create `apps/mobile`, TS/Expo tooling, nav shell, API client, auth bootstrap) is
-  next and not started.
-- The `apps/*` workspace glob in the root `package.json` already covers a new `apps/mobile` package —
-  no workspace config changes needed to create it.
-- Always confirm live status against `docs/frontend-milestones.md` directly — it moves faster than
-  this file.
+- **Backend (`apps/api`) has scaffolding across all 9 domains, but is mid-remediation.** A
+  full code audit (`docs/backend-audit-report.md`) found real bugs, stubs, and security holes
+  behind that scaffolding — two authentication bypasses, no CSRF protection, an Excel import
+  parser that never parses anything, no reminder-dispatch pipeline, and more. `docs/api-design/
+  domain-XX-*.md` contracts are still final for **shape** (never invent fields or endpoints),
+  but do **not** assume an endpoint's actual behavior matches its contract just because the
+  route exists — check the audit and the plan below first.
+- **Do not trust `docs/milestones.md` checkbox state at face value.** It currently marks things
+  complete that the audit shows are stubbed or broken. `docs/remediation-and-frontend-plan.md`
+  is the corrected, ordered list of what's actually left — treat it as authoritative over
+  `milestones.md` until the two are reconciled.
+- **Frontend has 2 screens** (`app/(auth)/index.tsx`, `app/(app)/index.tsx`). The plan is
+  `docs/frontend-milestones.md` for milestone ordering, and `docs/remediation-and-frontend-plan.md`
+  §2 for the concrete screen-by-screen inventory, including which screens are blocked on a
+  backend fix and which one.
+- If you are working through a known backend issue from the audit, **don't start from this
+  file** — start from `.github/prompts/fix-known-issues.prompt.md`, which walks the list in
+  order. Use `.github/prompts/start-task.prompt.md` only for backend work that isn't already
+  covered by the remediation plan (i.e. genuinely new feature work).
 
 ## Source of truth (check before answering or coding)
+- **What's broken and in what order to fix it:** `docs/remediation-and-frontend-plan.md`
+- **The original line-by-line audit findings:** `docs/backend-audit-report.md`
+- **Database-design-level findings (separate angle, same root causes):**
+  `docs/database-design-audit.md`
 - Frontend plan / current milestone: `docs/frontend-milestones.md`
+- Backend plan / current milestone: `docs/milestones.md` (status marks are unreliable — see above)
 - Requirements: `docs/requirements.md`
 - Database design: `docs/database-design.md`
 - API domain map: `docs/api-design/api-domains.md`
@@ -44,7 +58,8 @@ these docs, say so explicitly instead of guessing.
 - **Fonts:** `@expo-google-fonts/space-grotesk`, `@expo-google-fonts/inter`, `@expo-google-fonts/jetbrains-mono`
 - **Auth note:** the API uses cookie-based sessions, not JWTs. React Native doesn't get browser
   cookie jars for free — the HTTP client and the OAuth web→app handoff need explicit cookie
-  handling. Flag this as a design decision to make in Milestone 2, don't silently assume it works.
+  handling. This is also currently blocking Milestone 2's sign-in screen — check
+  `docs/frontend-milestones.md` before assuming it's resolved.
 
 ---
 
@@ -261,14 +276,21 @@ registering a press) can stay, minimized to an opacity change only.
 - Decorative animation with no reduced-motion gate
 - Haptic feedback fired independent of a user gesture, or overused on every micro-interaction
 
+**Screen-type-specific rules** (dashboards, list rows, empty states, forms, loading skeletons)
+live in `.github/instructions/mobile-design.instructions.md`, scoped to `apps/mobile/**` — read
+that file before building any screen, not just this one.
+
 ---
 
 ## Working conventions
 1. Screens map to the 9 API domains, not ad hoc groupings — check `docs/api-design/api-domains.md`
-   before naming a new screen/route.
+   and the screen inventory in `docs/remediation-and-frontend-plan.md` §2 before naming a new
+   screen/route. That inventory also tells you if the screen is blocked on a backend fix.
 2. One theme module (`colors.ts`, `typography.ts`, `spacing.ts`, `motion.ts`), consumed everywhere
    via hooks — no component reaches for a raw hex value or a magic number for spacing/duration.
-3. Match API request/response shapes from `docs/api-design/domain-XX-*.md` exactly.
+3. Match API request/response shapes from `docs/api-design/domain-XX-*.md` exactly — but verify
+   against `docs/backend-audit-report.md` that the endpoint actually behaves as documented before
+   building UI that assumes it does.
 4. Any deviation from this visual system or these animation rules is flagged explicitly, not
    made silently — same standard the backend docs already hold for schema/requirement changes.
 
@@ -280,6 +302,9 @@ registering a press) can stay, minimized to an opacity change only.
    milestone item as complete in `docs/frontend-milestones.md`. Don't mark a milestone item done
    on the strength of code review alone when it needed manual verification.
 
-## When starting a new session for a specific task
-Don't wait to be told the stack, docs, or design system — it's all above. Confirm which milestone
-item is being worked on against `docs/frontend-milestones.md`, then go straight to it.
+## When starting a new session
+Don't wait to be told the stack, docs, or design system — it's all above. Then pick the right
+entry point:
+- Fixing a known backend issue from the audit → `.github/prompts/fix-known-issues.prompt.md`
+- New backend feature work not covered by the remediation plan → `.github/prompts/start-task.prompt.md`
+- Mobile frontend work → `.github/prompts/start-frontend-task.prompt.md`

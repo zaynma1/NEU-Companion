@@ -36,10 +36,24 @@ export class AddPersonalEventExceptions20260903120001 implements MigrationInterf
         "location" character varying(255),
         "created_at" TIMESTAMPTZ NOT NULL DEFAULT now(),
         "updated_at" TIMESTAMPTZ NOT NULL DEFAULT now(),
-        CONSTRAINT "PK_personal_event_exceptions" PRIMARY KEY ("id"),
-        CONSTRAINT "UQ_personal_event_exceptions_event_occurrence" UNIQUE ("personal_event_id", "occurrence_start_datetime"),
-        CONSTRAINT "FK_personal_event_exceptions_personal_event_id" FOREIGN KEY ("personal_event_id") REFERENCES "personal_events"("id") ON DELETE CASCADE
+        CONSTRAINT "PK_personal_event_exceptions" PRIMARY KEY ("id")
       );
+    `);
+
+    await queryRunner.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1
+          FROM pg_constraint
+          WHERE conname = 'UQ_personal_event_exceptions_event_occurrence'
+        ) THEN
+          ALTER TABLE "personal_event_exceptions"
+            ADD CONSTRAINT "UQ_personal_event_exceptions_event_occurrence"
+            UNIQUE ("personal_event_id", "occurrence_start_datetime");
+        END IF;
+      END
+      $$;
     `);
 
     await queryRunner.query(`
@@ -54,6 +68,15 @@ export class AddPersonalEventExceptions20260903120001 implements MigrationInterf
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`DROP TABLE IF EXISTS "personal_event_exceptions";`);
+    await queryRunner.query(`
+      ALTER TABLE "personal_event_exceptions"
+        DROP CONSTRAINT IF EXISTS "UQ_personal_event_exceptions_event_occurrence";
+    `);
+    await queryRunner.query(`
+      DROP INDEX IF EXISTS "IDX_personal_event_exceptions_personal_event_id";
+    `);
+    await queryRunner.query(`
+      DROP INDEX IF EXISTS "IDX_personal_event_exceptions_occurrence_start_datetime";
+    `);
   }
 }

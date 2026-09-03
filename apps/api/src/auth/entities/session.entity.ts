@@ -23,6 +23,9 @@ export class Session {
   @Column({ type: 'varchar', length: 255, unique: true })
   tokenHash!: string;
 
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  csrfTokenHash?: string | null;
+
   @CreateDateColumn({ type: 'timestamptz' })
   createdAt!: Date;
 

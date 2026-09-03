@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Get,
+  Header,
   Logger,
   Param,
   Post,
@@ -298,6 +299,12 @@ export class AuthController {
     @Body() body: SignInDto,
     @Res({ passthrough: true }) res: Response,
   ): Promise<{ ok: true; userId: string; sessionId: string }> {
+    const allowInsecureLocalAuth =
+      process.env.ALLOW_INSECURE_LOCAL_AUTH === 'true' && process.env.NODE_ENV !== 'production';
+    if (!allowInsecureLocalAuth) {
+      throw new UnauthorizedException('Insecure sign-in is disabled');
+    }
+
     const email = body.email?.trim().toLowerCase();
     if (!email) {
       throw new UnauthorizedException('Email is required');
@@ -344,6 +351,20 @@ export class AuthController {
       sessionId: session.id,
       expiresAt: session.absoluteExpiresAt,
       lastActiveAt: session.lastActiveAt,
+    };
+  }
+
+  @UseGuards(AuthGuard)
+  @Header('Cache-Control', 'no-store')
+  @Get('csrf-token')
+  async csrfToken(@Req() req: Request & { user?: { sessionId?: string } }) {
+    if (!req.user?.sessionId) {
+      throw new UnauthorizedException('Missing authenticated session');
+    }
+
+    return {
+      ok: true,
+      csrfToken: await this.authService.getCsrfToken(req.user.sessionId),
     };
   }
 
