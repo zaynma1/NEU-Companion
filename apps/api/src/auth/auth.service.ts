@@ -633,8 +633,15 @@ export class AuthService {
       throw new UnauthorizedException('Google OAuth code or ID token is required');
     }
 
-    const clientId = process.env.GOOGLE_CLIENT_ID;
-    const needsStateValidation = !!clientId && !!input.code;
+    const hasGoogleConfiguration = !!process.env.GOOGLE_CLIENT_ID || !!process.env.GOOGLE_CLIENT_SECRET;
+    const allowInsecureLocalAuth =
+      process.env.ALLOW_INSECURE_LOCAL_AUTH === 'true' && process.env.NODE_ENV !== 'production';
+
+    if (!hasProviderCode && hasIdTokenInput && (!allowInsecureLocalAuth || hasGoogleConfiguration)) {
+      throw new UnauthorizedException('Verified Google code or ID token is required');
+    }
+
+    const needsStateValidation = !!process.env.GOOGLE_CLIENT_ID && !!input.code;
 
     if (needsStateValidation && !input.state) {
       this.logger.warn('Google callback rejected: missing OAuth state while client is configured');

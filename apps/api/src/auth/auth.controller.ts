@@ -1,3 +1,4 @@
+
 import {
   Body,
   Controller,
@@ -120,11 +121,13 @@ export class AuthController {
 
     const email = callbackBody.email?.trim().toLowerCase();
     const idToken = callbackBody.idToken ?? callbackBody.credential ?? undefined;
-    const hasGoogleClient = !!process.env.GOOGLE_CLIENT_ID && !!process.env.GOOGLE_CLIENT_SECRET;
-    const usesLocalDevFallback = !hasGoogleClient && !!email && !!callbackBody.googleSub;
+    const hasGoogleConfiguration = !!process.env.GOOGLE_CLIENT_ID || !!process.env.GOOGLE_CLIENT_SECRET;
+    const allowInsecureLocalAuth =
+      process.env.ALLOW_INSECURE_LOCAL_AUTH === 'true' && process.env.NODE_ENV !== 'production';
+    const usesLocalDevFallback = !hasGoogleConfiguration && allowInsecureLocalAuth && !!email && !!callbackBody.googleSub;
 
     this.logger.debug(
-      `Google callback start: method=${req.method}, path=${req.originalUrl ?? req.url}, code=${callbackBody.code ? 'present' : 'missing'}, state=${callbackBody.state ?? '<missing>'}, nonce=${callbackBody.nonce ?? '<missing>'}, email=${email ?? '<missing>'}, googleSub=${callbackBody.googleSub ?? '<missing>'}, hasGoogleClient=${hasGoogleClient}, usesLocalDevFallback=${usesLocalDevFallback}`,
+      `Google callback start: method=${req.method}, path=${req.originalUrl ?? req.url}, code=${callbackBody.code ? 'present' : 'missing'}, state=${callbackBody.state ?? '<missing>'}, nonce=${callbackBody.nonce ?? '<missing>'}, email=${email ?? '<missing>'}, googleSub=${callbackBody.googleSub ?? '<missing>'}, hasGoogleConfiguration=${hasGoogleConfiguration}, usesLocalDevFallback=${usesLocalDevFallback}`,
     );
 
     let verified: { email: string; googleSub: string; firstName?: string | null; lastName?: string | null };
@@ -132,13 +135,13 @@ export class AuthController {
     try {
       verified = idToken
         ? await this.authService.verifyGoogleIdentity(idToken)
-        : hasGoogleClient && callbackBody.code
+        : hasGoogleConfiguration && callbackBody.code
           ? await this.authService.exchangeGoogleCodeForIdentity(
               callbackBody.code,
               callbackBody.state,
               callbackBody.nonce,
             )
-          : usesLocalDevFallback
+            : usesLocalDevFallback
             ? {
                 email,
                 googleSub: callbackBody.googleSub ?? 'local-dev-google-sub',

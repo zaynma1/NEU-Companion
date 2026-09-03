@@ -1,4 +1,5 @@
 import { describe, it, expect, jest } from '@jest/globals';
+import { UnauthorizedException } from '@nestjs/common';
 import { AuthController } from './auth.controller';
 
 describe('Auth API contract stability', () => {
@@ -56,5 +57,53 @@ describe('Auth API contract stability', () => {
       message: 'Session revoked',
     });
     expect(clearCookie).toHaveBeenCalledWith('neu_companion_session');
+  });
+
+  it('audit 1.1 - rejects body-only identity and does not create a session', async () => {
+    const previous = {
+      GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
+      GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
+      ALLOW_INSECURE_LOCAL_AUTH: process.env.ALLOW_INSECURE_LOCAL_AUTH,
+      NODE_ENV: process.env.NODE_ENV,
+    };
+    process.env.GOOGLE_CLIENT_ID = 'test-client-id';
+    process.env.GOOGLE_CLIENT_SECRET = 'test-client-secret';
+    delete process.env.ALLOW_INSECURE_LOCAL_AUTH;
+    process.env.NODE_ENV = 'development';
+
+    const findOrCreateUser = jest.fn();
+    const createSession = jest.fn();
+    const authService = {
+      validateGoogleCallbackInput: jest.fn(async () => {
+        throw new UnauthorizedException('Verified Google code or ID token is required');
+      }),
+      recordAuthAttempt: jest.fn(async () => undefined),
+      findOrCreateUser,
+      createSession,
+      assertClientRateLimit: jest.fn(),
+    } as any;
+
+    try {
+      const controller = new AuthController(authService);
+
+      await expect(
+        controller.googleCallback(
+          { method: 'POST', query: {}, originalUrl: '/api/v1/auth/google/callback', url: '/api/v1/auth/google/callback' } as any,
+          { email: 'student@std.neu.edu.tr', googleSub: 'spoofed-google-sub' } as any,
+          { cookie: jest.fn() } as any,
+        ),
+      ).rejects.toThrow('Verified Google code or ID token is required');
+
+      expect(findOrCreateUser).not.toHaveBeenCalled();
+      expect(createSession).not.toHaveBeenCalled();
+    } finally {
+      for (const [key, value] of Object.entries(previous)) {
+        if (value === undefined) {
+          delete process.env[key];
+        } else {
+          process.env[key] = value;
+        }
+      }
+    }
   });
 });

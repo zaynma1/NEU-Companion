@@ -330,6 +330,90 @@ describe('AuthService challenge flow', () => {
     }
   });
 
+  describe('audit 1.1 - callback identity spoofing', () => {
+    const restoreEnvironment = (previous: Record<string, string | undefined>) => {
+      for (const [key, value] of Object.entries(previous)) {
+        if (value === undefined) {
+          delete process.env[key];
+        } else {
+          process.env[key] = value;
+        }
+      }
+    };
+
+    it('rejects body-only identity when Google credentials are configured', async () => {
+      const previous = {
+        GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
+        GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
+        ALLOW_INSECURE_LOCAL_AUTH: process.env.ALLOW_INSECURE_LOCAL_AUTH,
+        NODE_ENV: process.env.NODE_ENV,
+      };
+      process.env.GOOGLE_CLIENT_ID = 'test-client-id';
+      process.env.GOOGLE_CLIENT_SECRET = 'test-client-secret';
+      delete process.env.ALLOW_INSECURE_LOCAL_AUTH;
+      process.env.NODE_ENV = 'development';
+
+      try {
+        await expect(
+          authService.validateGoogleCallbackInput({
+            email: 'student@std.neu.edu.tr',
+            googleSub: 'spoofed-google-sub',
+          }),
+        ).rejects.toThrow('Verified Google code or ID token is required');
+      } finally {
+        restoreEnvironment(previous);
+      }
+    });
+
+    it('rejects body-only identity without the explicit local-auth flag', async () => {
+      const previous = {
+        GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
+        GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
+        ALLOW_INSECURE_LOCAL_AUTH: process.env.ALLOW_INSECURE_LOCAL_AUTH,
+        NODE_ENV: process.env.NODE_ENV,
+      };
+      delete process.env.GOOGLE_CLIENT_ID;
+      delete process.env.GOOGLE_CLIENT_SECRET;
+      delete process.env.ALLOW_INSECURE_LOCAL_AUTH;
+      process.env.NODE_ENV = 'development';
+
+      try {
+        await expect(
+          authService.validateGoogleCallbackInput({
+            email: 'student@std.neu.edu.tr',
+            googleSub: 'spoofed-google-sub',
+          }),
+        ).rejects.toThrow('Verified Google code or ID token is required');
+      } finally {
+        restoreEnvironment(previous);
+      }
+    });
+
+    it('rejects body-only identity when Google configuration is partial', async () => {
+      const previous = {
+        GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
+        GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
+        ALLOW_INSECURE_LOCAL_AUTH: process.env.ALLOW_INSECURE_LOCAL_AUTH,
+        NODE_ENV: process.env.NODE_ENV,
+      };
+      process.env.GOOGLE_CLIENT_ID = 'test-client-id';
+      delete process.env.GOOGLE_CLIENT_SECRET;
+      process.env.ALLOW_INSECURE_LOCAL_AUTH = 'true';
+      process.env.NODE_ENV = 'development';
+
+      try {
+        await expect(
+          authService.validateGoogleCallbackInput({
+            email: 'student@std.neu.edu.tr',
+            googleSub: 'spoofed-google-sub',
+          }),
+        ).rejects.toThrow('Verified Google code or ID token is required');
+      } finally {
+        restoreEnvironment(previous);
+      }
+    });
+  });
+
   it('accepts the real Google callback shape where only the state is returned in the redirect URL', async () => {
     const previousClientId = process.env.GOOGLE_CLIENT_ID;
     process.env.GOOGLE_CLIENT_ID = 'test-client-id';
