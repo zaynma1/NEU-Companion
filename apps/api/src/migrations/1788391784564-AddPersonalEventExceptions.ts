@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddPersonalEventExceptions20260903120001 implements MigrationInterface {
-  name = 'AddPersonalEventExceptions20260903120001';
+export class AddPersonalEventExceptions1788391784564 implements MigrationInterface {
+  name = 'AddPersonalEventExceptions1788391784564';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
