@@ -48,6 +48,12 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Run database migrations
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/neu_companion_test
+          NODE_ENV: test
+        run: npm --workspace apps/api run migration:run
+
       - name: Build API
         run: npm --workspace apps/api run build
 
