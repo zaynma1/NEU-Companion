@@ -66,28 +66,32 @@ open checklist.
 - [x] Implement CSRF protection (double-submit or synchronizer token) for all non-GET routes, and
   replace `app.enableCors({ origin: true, credentials: true })` in `main.ts` with an explicit
   origin allow-list plus `Origin`/`Referer` validation. *(audit §1.3)*
-- [ ] Move device fingerprinting server-side: issue a signed, HttpOnly device cookie on first
+- [x] Move device fingerprinting server-side: issue a signed, HttpOnly device cookie on first
   contact instead of trusting the `deviceFingerprint` field in the request body
-  (`auth.controller.ts`, `auth.service.ts createSession`). *(audit §1.4)*
-- [ ] Fix office-hours upload/delete authorization: `upsertProfessorOfficeHours` and
+-  (`auth.controller.ts`, `auth.service.ts createSession`), with dual device/IP throttle keys,
+  explicit proxy modes, IPv6 prefix bucketing, and tests. *(audit §1.4 — code complete)*
+- [ ] Configure and empirically verify `TRUST_PROXY_MODE`/hop count or proxy allow-list against
+  the deployed ingress by comparing the socket peer address with the resolved client address for
+  a known test client. *(audit §1.4 — production go-live configuration pending)*
+- [x] Fix office-hours upload/delete authorization: `upsertProfessorOfficeHours` and
   `deleteProfessorOfficeHours` in `profile.controller.ts`/`profile.service.ts` must check
   `req.user.id === professorId || req.user.role === 'admin'` — right now any logged-in student
   can overwrite or delete any professor's document. *(audit §8.1)*
 
 ### Phase B2 — Routing/contract consistency (cheap, mechanical, unblocks frontend work)
-- [ ] Standardize on `app.setGlobalPrefix('api/v1')` in `main.ts`; remove the ad hoc per-controller
+- [x] Standardize on `app.setGlobalPrefix('api/v1')` in `main.ts`; remove the ad hoc per-controller
   prefixes on `admin-users.controller.ts`, `admin-role.controller.ts`,
   `pending-review.controller.ts`, and the auth controller's dual `['auth', 'api/v1/auth']`
   registration so every route matches its documented contract in `docs/api-design/domain-XX-*.md`.
   *(audit §1.5, also affects §9 account-deletion routes)*
-- [ ] Change the office-hours upsert route from `POST` to `PUT` to match `domain-07`. *(audit §8.4)*
+- [x] Change the office-hours upsert route from `POST` to `PUT` to match `domain-07`. *(audit §8.4)*
 
 ### Phase B3 — The actual product pipeline (currently has no working path end to end)
 - [ ] Build `EnrollmentController`/`EnrollmentService` and every documented Domain 2 endpoint:
   `GET /courses`, `GET /courses/{id}`, `GET /courses/{id}/groups`, `GET /enrollments`,
   `POST /enrollments`, `POST /enrollments/{id}/drop`, `POST /enrollments/switch`,
   `GET /courses/{id}/groups/{id}/eligibility`, `GET /students/me/courses`. *(audit §3.1)*
-- [ ] Add auth guard + caller-scoped filtering to `GET /professor/teaching-claims`
+- [x] Add auth guard + caller-scoped filtering to `GET /professor/teaching-claims`
   (`professor-teaching-claim.controller.ts`) — it's currently unauthenticated and leaks every
   professor's data. *(audit §3.2)*
 - [ ] Add `POST /professor/teaching-claims` (self-claim), `DELETE /professor/teaching-claims/{id}`
@@ -405,8 +409,6 @@ stubbed endpoints as done.
 9. Frontend Milestone 4 (admin screens) once Phase B4's admin-facing fixes (FAQ moderation,
    notification admin stubs, teaching-claim assignment) land.
 10. Frontend Milestone 5 (device QA, guardrail self-check per Section 3, release checklist) last.
-
-
 
 
 

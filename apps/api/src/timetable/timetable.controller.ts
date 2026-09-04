@@ -21,7 +21,7 @@ import {
   GetPersonalEventsQueryDto,
 } from './dtos/timetable.dto';
 
-@Controller('api/v1')
+@Controller()
 @UseGuards(AuthGuard)
 export class TimetableController {
   constructor(private readonly timetableService: TimetableService) {}

@@ -1,12 +1,14 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Query, Req, UseGuards } from '@nestjs/common';
+import { AuthGuard } from '../auth/auth.guard';
 import { ProfessorTeachingClaimService } from './professor-teaching-claim.service';
 
-@Controller('api/v1/professor')
+@Controller('professor')
+@UseGuards(AuthGuard)
 export class ProfessorTeachingClaimController {
   constructor(private readonly professorTeachingClaimService: ProfessorTeachingClaimService) {}
 
   @Get('teaching-claims')
-  async findAll() {
-    return this.professorTeachingClaimService.findAll();
+  async findAll(@Req() req: any, @Query('status') status?: 'active' | 'released') {
+    return this.professorTeachingClaimService.findAll(req.user.id, status);
   }
 }

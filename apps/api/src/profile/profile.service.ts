@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
   UnauthorizedException,
@@ -309,11 +310,20 @@ export class ProfileService {
 
   async upsertProfessorOfficeHours(
     professorId: string,
+    actorId: string,
+    actorRole: string,
     dto: { fileUrl?: string; mimeType?: string; fileSizeBytes?: number; officeHoursSummary?: string | null },
   ) {
+    if (professorId !== actorId && actorRole !== 'admin') {
+      throw new ForbiddenException('Not authorized to modify office-hours document');
+    }
+
     const professor = await this.userRepository.findOne({ where: { id: professorId } });
     if (!professor) {
       throw new NotFoundException('Professor not found');
+    }
+    if (professor.role !== 'professor') {
+      throw new ForbiddenException('Office-hours documents are restricted to professors');
     }
 
     const supportedMime = ['application/pdf', 'image/png', 'image/jpeg', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'];
@@ -345,7 +355,19 @@ export class ProfileService {
     return this.professorDocumentRepository.save(document);
   }
 
-  async deleteProfessorOfficeHours(professorId: string) {
+  async deleteProfessorOfficeHours(professorId: string, actorId: string, actorRole: string) {
+    if (professorId !== actorId && actorRole !== 'admin') {
+      throw new ForbiddenException('Not authorized to modify office-hours document');
+    }
+
+    const professor = await this.userRepository.findOne({ where: { id: professorId } });
+    if (!professor) {
+      throw new NotFoundException('Professor not found');
+    }
+    if (professor.role !== 'professor') {
+      throw new ForbiddenException('Office-hours documents are restricted to professors');
+    }
+
     const document = await this.professorDocumentRepository.findOne({ where: { professorId } });
     if (!document) {
       throw new NotFoundException('Office-hours document not found');

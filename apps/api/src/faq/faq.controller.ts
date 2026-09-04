@@ -25,7 +25,7 @@ import {
   ResolveQuestionDto,
 } from './dto/faq.dto';
 
-@Controller('api/v1/faq')
+@Controller('faq')
 @UseGuards(AuthGuard)
 export class FaqController {
   constructor(private readonly faqService: FaqService) {}

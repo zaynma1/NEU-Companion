@@ -313,6 +313,12 @@ export class AuthService {
     return createHash('sha256').update(token).digest('hex');
   }
 
+  hashClientIdentifier(identifier: string): string {
+    return createHmac('sha256', process.env.AUTH_THROTTLE_SECRET ?? 'local-auth-throttle-secret')
+      .update(identifier)
+      .digest('hex');
+  }
+
   private getCsrfSecret(): string {
     return process.env.CSRF_SECRET ?? 'development-only-csrf-secret';
   }
@@ -858,9 +864,10 @@ export class AuthService {
     ]);
 
     const attempts = await this.authAttemptRepository.find({
-      where: {
-        clientFingerprint,
-      },
+      where: [
+        { clientFingerprint },
+        ...(clientIpHash ? [{ clientIpHash }] : []),
+      ],
     });
 
     const recentFailedAttempts = attempts.filter((attempt) => {
@@ -868,15 +875,18 @@ export class AuthService {
         return false;
       }
 
-      if (clientIpHash && attempt.clientIpHash && attempt.clientIpHash !== clientIpHash) {
-        return false;
-      }
-
       return failedOutcomes.has(attempt.outcome);
     });
 
-    if (recentFailedAttempts.length >= 5) {
-      const relatedAttempt = recentFailedAttempts[recentFailedAttempts.length - 1];
+    const deviceFailures = recentFailedAttempts.filter((attempt) => attempt.clientFingerprint === clientFingerprint);
+    const ipFailures = clientIpHash
+      ? recentFailedAttempts.filter((attempt) => attempt.clientIpHash === clientIpHash)
+      : [];
+
+    if (deviceFailures.length >= 5 || ipFailures.length >= 20) {
+      const relatedAttempt = (deviceFailures.length >= 5 ? deviceFailures : ipFailures)[
+        (deviceFailures.length >= 5 ? deviceFailures : ipFailures).length - 1
+      ];
       await this.createSecurityAlert({
         userId: relatedAttempt.accountUserId ?? null,
         alertType: 'account_abuse_threshold',

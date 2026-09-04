@@ -1,8 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
-import { validateRuntimeEnvironment } from './config/runtime.config';
-import { resolveCorsOrigin } from './config/runtime.config';
+import { getExpressTrustProxySetting, resolveCorsOrigin, validateRuntimeEnvironment } from './config/runtime.config';
 import { CsrfMiddleware } from './auth/csrf.middleware';
 import { AuthService } from './auth/auth.service';
 
@@ -12,6 +11,8 @@ async function bootstrap() {
   validateRuntimeEnvironment();
 
   const app = await NestFactory.create(AppModule);
+  app.setGlobalPrefix('api/v1');
+  app.getHttpAdapter().getInstance().set('trust proxy', getExpressTrustProxySetting());
   const port = Number(process.env.PORT ?? 3000);
 
   console.log(
@@ -22,7 +23,7 @@ async function bootstrap() {
     origin: (requestOrigin, callback) => callback(null, resolveCorsOrigin(requestOrigin)),
     credentials: true,
   });
-  app.use(cookieParser());
+  app.use(cookieParser(process.env.DEVICE_COOKIE_SECRET ?? 'local-device-cookie-secret'));
   const csrfMiddleware = new CsrfMiddleware(app.get(AuthService));
   app.use(csrfMiddleware.use.bind(csrfMiddleware));
   app.useGlobalPipes(

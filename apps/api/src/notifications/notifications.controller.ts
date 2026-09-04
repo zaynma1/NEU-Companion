@@ -25,7 +25,7 @@ import {
   ListAdminNotificationsQueryDto,
 } from './dtos/notification.dto';
 
-@Controller('api/v1')
+@Controller()
 @UseGuards(AuthGuard)
 export class NotificationController {
   constructor(private readonly notificationService: NotificationService) {}
@@ -244,7 +244,7 @@ export class NotificationController {
   }
 }
 
-@Controller('api/v1/admin')
+@Controller('admin')
 @UseGuards(AuthGuard, RolesGuard)
 @Roles('admin')
 export class AdminNotificationController {

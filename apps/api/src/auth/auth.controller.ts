@@ -13,9 +13,11 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
+import { randomUUID } from 'node:crypto';
 import { AuthGuard } from './auth.guard';
 import { AuthService } from './auth.service';
 import { getSessionCookieOptions } from '../config/runtime.config';
+import { getDeviceCookieOptions, resolveClientIp } from '../config/runtime.config';
 
 
 class SignInDto {
@@ -58,11 +60,26 @@ class DeletionRequestDto {
   confirmation?: boolean;
 }
 
-@Controller(['auth', 'api/v1/auth'])
+type AuthRequest = Request & { signedCookies?: Record<string, string | false | undefined>; deviceFingerprint?: string };
+
+@Controller('auth')
 export class AuthController {
   private readonly logger = new Logger(AuthController.name);
 
   constructor(private readonly authService: AuthService) {}
+
+  private resolveDeviceFingerprint(req: AuthRequest | Record<string, never>, res: Response): string {
+    const existing = req.signedCookies?.neu_companion_device;
+    if (typeof existing === 'string' && existing.length > 0) {
+      req.deviceFingerprint = existing;
+      return existing;
+    }
+
+    const fingerprint = randomUUID();
+    req.deviceFingerprint = fingerprint;
+    res.cookie('neu_companion_device', fingerprint, getDeviceCookieOptions(process.env.NODE_ENV));
+    return fingerprint;
+  }
 
   @Post(['google/start'])
   googleStart() {
@@ -101,10 +118,14 @@ export class AuthController {
   @Get(['google/callback'])
   @Post(['google/callback'])
   async googleCallback(
-    @Req() req: Request,
+    @Req() req: AuthRequest,
     @Body() body: GoogleCallbackDto,
     @Res({ passthrough: true }) res: Response,
   ) {
+    const deviceFingerprint = this.resolveDeviceFingerprint(req, res);
+    const clientIpHash = typeof this.authService.hashClientIdentifier === 'function'
+      ? this.authService.hashClientIdentifier(resolveClientIp(req))
+      : undefined;
     const query = req.query as Record<string, string | string[] | undefined>;
     const callbackBody: GoogleCallbackDto = {
       ...body,
@@ -160,8 +181,8 @@ export class AuthController {
               });
     } catch (error) {
       await this.authService.recordAuthAttempt({
-        clientFingerprint: callbackBody.deviceFingerprint ?? 'google-oauth-device',
-        clientIpHash: undefined,
+        clientFingerprint: deviceFingerprint,
+        clientIpHash,
         accountUserId: undefined,
         outcome: 'state_nonce_mismatch',
       });
@@ -177,7 +198,7 @@ export class AuthController {
       `Google callback verified identity: email=${verified.email}, googleSub=${verified.googleSub}, firstName=${verified.firstName ?? '<empty>'}, lastName=${verified.lastName ?? '<empty>'}`,
     );
 
-    await this.authService.assertClientRateLimit(callbackBody.deviceFingerprint ?? 'google-oauth-device');
+    await this.authService.assertClientRateLimit(deviceFingerprint, clientIpHash);
 
     const user = await this.authService.findOrCreateUser({
       email: verified.email,
@@ -192,7 +213,7 @@ export class AuthController {
 
     const { session, token } = await this.authService.createSession(
       user.id,
-      body.deviceFingerprint ?? 'google-oauth-device',
+      deviceFingerprint,
     );
 
     const cookieOptions = getSessionCookieOptions(process.env.NODE_ENV);
@@ -208,7 +229,11 @@ export class AuthController {
   }
 
   @Post('challenge')
-  async createChallenge(@Body() body: ChallengeDto) {
+  async createChallenge(
+    @Req() req: AuthRequest,
+    @Body() body: ChallengeDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     if (!body.challengeType) {
       throw new UnauthorizedException('Challenge type is required');
     }
@@ -216,7 +241,7 @@ export class AuthController {
     const issue = await this.authService.createChallenge({
       challengeType: body.challengeType,
       purpose: body.purpose ?? 'default',
-      deviceFingerprint: body.deviceFingerprint ?? 'unknown-device',
+      deviceFingerprint: this.resolveDeviceFingerprint(req, res),
     });
 
     return {
@@ -230,7 +255,11 @@ export class AuthController {
   }
 
   @Post('challenge/verify')
-  async verifyChallenge(@Body() body: ChallengeVerifyDto) {
+  async verifyChallenge(
+    @Req() req: AuthRequest,
+    @Body() body: ChallengeVerifyDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     if (!body.challengeId || !body.response) {
       throw new UnauthorizedException('Challenge ID and response are required');
     }
@@ -239,7 +268,7 @@ export class AuthController {
       challengeId: body.challengeId,
       response: body.response,
       accountUserId: body.accountUserId,
-      deviceFingerprint: body.deviceFingerprint,
+      deviceFingerprint: this.resolveDeviceFingerprint(req, res),
       purpose: body.purpose,
     });
 
@@ -298,6 +327,7 @@ export class AuthController {
   async signIn(
     @Body() body: SignInDto,
     @Res({ passthrough: true }) res: Response,
+    @Req() req?: AuthRequest,
   ): Promise<{ ok: true; userId: string; sessionId: string }> {
     const allowInsecureLocalAuth =
       process.env.ALLOW_INSECURE_LOCAL_AUTH === 'true' && process.env.NODE_ENV !== 'production';
@@ -322,7 +352,10 @@ export class AuthController {
       googleSub: body.googleSub ?? null,
     });
 
-    const { session, token } = await this.authService.createSession(user.id, body.deviceFingerprint);
+    const { session, token } = await this.authService.createSession(
+      user.id,
+      this.resolveDeviceFingerprint(req ?? {}, res),
+    );
 
     const cookieOptions = getSessionCookieOptions(process.env.NODE_ENV);
     res.cookie('neu_companion_session', token, cookieOptions);

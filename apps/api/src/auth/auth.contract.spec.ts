@@ -58,6 +58,112 @@ describe('Auth API contract stability', () => {
       message: 'Session revoked',
     });
     expect(clearCookie).toHaveBeenCalledWith('neu_companion_session');
+    expect(clearCookie).not.toHaveBeenCalledWith('neu_companion_device');
+  });
+
+  it('audit 1.4 - treats an invalid device-cookie signature as absent and issues a replacement', async () => {
+    const createChallenge = jest.fn(async () => ({
+      challengeId: 'challenge-1',
+      challengeSecret: 'secret',
+      challengeType: 'step_up' as const,
+      issuedAt: new Date(),
+      expiresAt: new Date(Date.now() + 600000),
+    }));
+    const authService = { createChallenge, hashClientIdentifier: jest.fn(() => 'ip-hash') } as any;
+    const controller = new AuthController(authService);
+    const cookie = jest.fn();
+
+    await controller.createChallenge(
+      { signedCookies: { neu_companion_device: false } } as any,
+      { challengeType: 'step_up', purpose: 'test', deviceFingerprint: 'attacker-value' },
+      { cookie } as any,
+    );
+
+    expect(cookie).toHaveBeenCalledWith(
+      'neu_companion_device',
+      expect.any(String),
+      expect.objectContaining({ httpOnly: true, sameSite: 'lax', signed: true }),
+    );
+    expect(createChallenge).toHaveBeenCalledWith(
+      expect.objectContaining({ deviceFingerprint: expect.not.stringMatching('attacker-value') }),
+    );
+  });
+
+  it('audit 1.4 - makes a newly issued fingerprint available during the same callback request', async () => {
+    const previous = {
+      ALLOW_INSECURE_LOCAL_AUTH: process.env.ALLOW_INSECURE_LOCAL_AUTH,
+      NODE_ENV: process.env.NODE_ENV,
+    };
+    process.env.ALLOW_INSECURE_LOCAL_AUTH = 'true';
+    process.env.NODE_ENV = 'development';
+
+    const createSession = jest.fn(async (_userId: string, _deviceFingerprint: string) => ({
+      session: { id: 'session-1' },
+      token: 'session-token',
+    }));
+    const authService = {
+      hashClientIdentifier: jest.fn(() => 'ip-hash'),
+      validateGoogleCallbackInput: jest.fn(),
+      findOrCreateUser: jest.fn(async () => ({ id: 'user-1', accountStatus: 'active', role: 'student' })),
+      createSession,
+      assertClientRateLimit: jest.fn(),
+      recordAuthAttempt: jest.fn(),
+    } as any;
+    const cookie = jest.fn();
+
+    try {
+      const controller = new AuthController(authService);
+      await controller.googleCallback(
+        {
+          method: 'POST',
+          query: {},
+          originalUrl: '/api/v1/auth/google/callback',
+          url: '/api/v1/auth/google/callback',
+          socket: { remoteAddress: '192.0.2.1' },
+          headers: {},
+          signedCookies: {},
+        } as any,
+        { email: 'student@std.neu.edu.tr', googleSub: 'local-sub', deviceFingerprint: 'attacker-value' } as any,
+        { cookie } as any,
+      );
+
+      const generatedFingerprint = createSession.mock.calls[0][1];
+      expect(generatedFingerprint).toEqual(expect.any(String));
+      expect(generatedFingerprint).not.toBe('attacker-value');
+      expect(cookie).toHaveBeenCalledWith('neu_companion_device', generatedFingerprint, expect.any(Object));
+    } finally {
+      for (const [key, value] of Object.entries(previous)) {
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
+      }
+    }
+  });
+
+  it('audit 1.4 - rejects challenge verification when the device cookie changes', async () => {
+    const verifyChallenge = jest.fn(async (input: { deviceFingerprint?: string }) => {
+      if (input.deviceFingerprint !== 'cookie-a') {
+        throw new UnauthorizedException('Challenge device fingerprint mismatch');
+      }
+      return { verified: true, challengeId: 'challenge-1' };
+    });
+    const authService = { verifyChallenge } as any;
+    const controller = new AuthController(authService);
+
+    await expect(
+      controller.verifyChallenge(
+        { signedCookies: { neu_companion_device: 'cookie-b' } } as any,
+        { challengeId: 'challenge-1', response: 'secret', deviceFingerprint: 'attacker-value' },
+        { cookie: jest.fn() } as any,
+      ),
+    ).rejects.toThrow('Challenge device fingerprint mismatch');
+
+    expect(verifyChallenge).toHaveBeenCalledWith({
+      challengeId: 'challenge-1',
+      response: 'secret',
+      accountUserId: undefined,
+      deviceFingerprint: 'cookie-b',
+      purpose: undefined,
+    });
   });
 
   it('returns an authenticated per-session CSRF token without caching it', async () => {
@@ -225,7 +331,7 @@ describe('Auth API contract stability', () => {
           lastName: null,
           googleSub: 'dev-sub',
         });
-        expect(createSession).toHaveBeenCalledWith('user-123', undefined);
+        expect(createSession).toHaveBeenCalledWith('user-123', expect.any(String));
       } finally {
         restoreEnvironment(previous);
       }

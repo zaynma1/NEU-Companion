@@ -239,6 +239,36 @@ describe('AuthService challenge flow', () => {
     );
   });
 
+  it('audit 1.4 - applies a more permissive independent IP threshold', async () => {
+    authAttemptRepository.find.mockResolvedValue(
+      Array.from({ length: 5 }, (_, index) => ({
+        id: `attempt-${index}`,
+        clientFingerprint: `device-${index}`,
+        clientIpHash: 'shared-ip',
+        outcome: 'challenge_failed',
+        occurredAt: new Date(),
+      })),
+    );
+
+    await expect(authService.assertClientRateLimit('new-device', 'shared-ip')).resolves.toBeUndefined();
+
+    authAttemptRepository.find.mockResolvedValue(
+      Array.from({ length: 20 }, (_, index) => ({
+        id: `attempt-${index}`,
+        clientFingerprint: `device-${index}`,
+        clientIpHash: 'shared-ip',
+        outcome: 'challenge_failed',
+        occurredAt: new Date(),
+      })),
+    );
+    securityAlertRepository.create.mockImplementation((value: any) => value);
+    securityAlertRepository.save.mockResolvedValue({ id: 'alert-ip' });
+
+    await expect(authService.assertClientRateLimit('new-device', 'shared-ip')).rejects.toThrow(
+      'Too many failed authentication attempts. Please try again later.',
+    );
+  });
+
   it('returns a local dev OAuth URL when no Google client is configured', () => {
     const previousClientId = process.env.GOOGLE_CLIENT_ID;
     const previousNodeEnv = process.env.NODE_ENV;

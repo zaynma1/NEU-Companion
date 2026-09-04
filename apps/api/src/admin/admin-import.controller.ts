@@ -31,7 +31,7 @@ import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { ApplyImportDto, RollbackImportDto, RetryImportDto, ListImportsQueryDto, ListDatasetVersionsQueryDto } from './dtos/import.dto';
 
-@Controller('api/v1/admin')
+@Controller('admin')
 @UseGuards(AuthGuard, RolesGuard)
 @Roles('admin')
 export class AdminImportController {

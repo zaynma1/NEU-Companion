@@ -14,7 +14,7 @@ import {
 import { AuthGuard } from '../auth/auth.guard';
 import { ProfileService } from './profile.service';
 
-@Controller('api/v1')
+@Controller()
 @UseGuards(AuthGuard)
 export class ProfileController {
   constructor(private readonly profileService: ProfileService) {}
@@ -157,7 +157,7 @@ export class ProfileController {
     };
   }
 
-  @Post('professors/:userId/office-hours')
+  @Put('professors/:userId/office-hours')
   async upsertProfessorOfficeHours(@Req() req: any, @Param('userId') userId: string, @Body() dto: any) {
     const user = req.user;
     if (!user) {
@@ -166,7 +166,7 @@ export class ProfileController {
 
     return {
       status: 'success',
-      data: await this.profileService.upsertProfessorOfficeHours(userId, dto),
+      data: await this.profileService.upsertProfessorOfficeHours(userId, req.user.id, req.user.role, dto),
     };
   }
 
@@ -179,7 +179,7 @@ export class ProfileController {
 
     return {
       status: 'success',
-      data: await this.profileService.deleteProfessorOfficeHours(userId),
+      data: await this.profileService.deleteProfessorOfficeHours(userId, req.user.id, req.user.role),
     };
   }
 }
