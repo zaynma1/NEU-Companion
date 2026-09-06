@@ -1,6 +1,6 @@
 import { Injectable, BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, MoreThan, LessThan, IsNull } from 'typeorm';
+import { Repository, LessThan, IsNull } from 'typeorm';
 import * as crypto from 'crypto';
 import { NotificationPreference } from './entities/notification-preference.entity';
 import { MutedCourse } from './entities/muted-course.entity';
@@ -208,7 +208,7 @@ export class NotificationService {
       where: {
         professorId: userId,
         courseGroupId: dto.courseGroupId,
-        verifiedAt: MoreThan(new Date()),
+        releasedAt: IsNull(),
       },
     });
 

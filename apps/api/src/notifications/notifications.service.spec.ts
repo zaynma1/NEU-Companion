@@ -160,4 +160,36 @@ describe('NotificationService', () => {
       expect(key1).not.toEqual(key2);
     });
   });
+
+  describe('publishAnnouncement claim authorization', () => {
+    const dto = { courseId: 'course-1', courseGroupId: 'group-1', body: 'Exam moved' } as any;
+
+    beforeEach(() => {
+      mockCourseGroupRepository.findOne.mockResolvedValue({ id: 'group-1', courseId: 'course-1', course: {} });
+      mockAnnouncementRepository.create.mockImplementation((value: any) => value);
+      mockAnnouncementRepository.save.mockImplementation(async (value: any) => value);
+    });
+
+    it('allows a never-verified active claim to publish', async () => {
+      mockTeachingClaimRepository.findOne.mockResolvedValue({
+        professorId: 'professor-1',
+        courseGroupId: 'group-1',
+        verifiedAt: null,
+        releasedAt: null,
+      });
+
+      await expect(service.publishAnnouncement('professor-1', dto)).resolves.toMatchObject(dto);
+      expect(mockTeachingClaimRepository.findOne).toHaveBeenCalledWith({
+        where: { professorId: 'professor-1', courseGroupId: 'group-1', releasedAt: expect.anything() },
+      });
+    });
+
+    it('rejects a released claim even if it was previously verified', async () => {
+      mockTeachingClaimRepository.findOne.mockResolvedValue(null);
+
+      await expect(service.publishAnnouncement('professor-1', dto)).rejects.toThrow(
+        'You do not have an active teaching claim for this course group',
+      );
+    });
+  });
 });

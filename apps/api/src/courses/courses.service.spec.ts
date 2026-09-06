@@ -2,13 +2,15 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { describe, expect, it, jest } from '@jest/globals';
 import { CoursesService } from './courses.service';
 
+const mockFn = () => jest.fn<(...args: any[]) => any>();
+
 function createService() {
   const courseRepository = {
-    find: jest.fn(),
-    findOne: jest.fn(),
+    find: mockFn(),
+    findOne: mockFn(),
   };
   const courseGroupRepository = {
-    find: jest.fn(),
+    find: mockFn(),
   };
 
   return {

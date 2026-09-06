@@ -1,16 +1,18 @@
 import { describe, expect, it, jest } from '@jest/globals';
 import { EnrollmentService } from './enrollment.service';
 
+const mockFn = () => jest.fn<(...args: any[]) => any>();
+
 function createService() {
   const enrollmentRepository = {
-    find: jest.fn(),
-    findOne: jest.fn(),
+    find: mockFn(),
+    findOne: mockFn(),
     create: jest.fn((value) => value),
     save: jest.fn((value) => Promise.resolve(value)),
   };
-  const courseGroupRepository = { findOne: jest.fn() };
-  const userRepository = { findOne: jest.fn() };
-  const systemConfigRepository = { findOne: jest.fn() };
+  const courseGroupRepository = { findOne: mockFn() };
+  const userRepository = { findOne: mockFn() };
+  const systemConfigRepository = { findOne: mockFn() };
   return {
     service: new EnrollmentService(
       enrollmentRepository as any,
