@@ -1,5 +1,5 @@
 import { describe, expect, it, jest } from '@jest/globals';
-import { AddActiveTeachingClaimUniqueIndex1788391784566 } from './1788391784566-AddActiveTeachingClaimUniqueIndex';
+import { AddActiveTeachingClaimUniqueIndex1788391784566 } from './migrations/1788391784566-AddActiveTeachingClaimUniqueIndex';
 
 describe('AddActiveTeachingClaimUniqueIndex1788391784566', () => {
   it('creates a partial unique index for active claims only', async () => {
@@ -9,8 +9,8 @@ describe('AddActiveTeachingClaimUniqueIndex1788391784566', () => {
     await migration.up({ query } as any);
 
     expect(query).toHaveBeenCalledWith(expect.stringContaining('CREATE UNIQUE INDEX'));
-    expect(query).toHaveBeenCalledWith(expect.stringContaining('("course_group_id")'));
-    expect(query).toHaveBeenCalledWith(expect.stringContaining('WHERE "released_at" IS NULL'));
+    expect(query).toHaveBeenCalledWith(expect.stringContaining('(\"course_group_id\")'));
+    expect(query).toHaveBeenCalledWith(expect.stringContaining('WHERE \"released_at\" IS NULL'));
   });
 
   it('drops the active-claim index on rollback', async () => {
