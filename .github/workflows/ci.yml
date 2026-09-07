@@ -90,7 +90,7 @@ jobs:
           echo "Waiting for API to start..."
 
           for i in {1..30}; do
-            if curl -sf http://localhost:3001/ > /dev/null; then
+            if curl -sf http://localhost:3001/api/v1 > /dev/null; then
               echo "✓ API health check passed"
               kill $SERVER_PID 2>/dev/null || true
               wait $SERVER_PID 2>/dev/null || true
