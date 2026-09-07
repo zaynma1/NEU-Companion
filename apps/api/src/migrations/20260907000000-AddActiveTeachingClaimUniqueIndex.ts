@@ -5,7 +5,17 @@ export class AddActiveTeachingClaimUniqueIndex20260907000000 implements Migratio
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(
-      'CREATE UNIQUE INDEX "IDX_professor_teaching_claims_active_group" ON "professor_teaching_claims" ("course_group_id") WHERE "released_at" IS NULL',
+      `
+        DO $$
+        BEGIN
+          IF to_regclass('public.professor_teaching_claims') IS NOT NULL THEN
+            CREATE UNIQUE INDEX IF NOT EXISTS "IDX_professor_teaching_claims_active_group"
+              ON "professor_teaching_claims" ("course_group_id")
+              WHERE "released_at" IS NULL;
+          END IF;
+        END
+        $$;
+      `,
     );
   }
 
