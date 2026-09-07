@@ -1,5 +1,11 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ProfessorTeachingClaimService } from './professor-teaching-claim.service';
 
 const mockFn = () => jest.fn<(...args: any[]) => any>();
@@ -12,11 +18,13 @@ describe('ProfessorTeachingClaimService', () => {
   let systemConfigRepository: any;
   let authService: any;
   let dataSource: any;
+  let transactionRepository: any;
   const professor = { id: 'professor-1', role: 'professor', accountStatus: 'active' };
   const group = {
     id: 'group-1',
     courseId: 'course-1',
     isArchived: false,
+    professorRawName: 'Imported Professor Name',
     course: { id: 'course-1', term: '2026-fall' },
   };
 
@@ -33,7 +41,7 @@ describe('ProfessorTeachingClaimService', () => {
       ensureFreshStepUp: mockFn().mockResolvedValue(undefined),
       writeAuditLog: mockFn().mockResolvedValue({}),
     };
-    const transactionRepository = {
+    transactionRepository = {
       create: jest.fn((value: any) => ({ id: 'claim-1', ...value })),
       save: jest.fn((value: any) => Promise.resolve(value)),
     };
@@ -68,20 +76,62 @@ describe('ProfessorTeachingClaimService', () => {
       actionType: 'teaching_claim_created',
       targetEntity: 'professor_teaching_claims',
     }));
+    expect(transactionRepository.create).toHaveBeenCalledWith(expect.objectContaining({ releasedAt: null }));
+    expect(group.professorRawName).toBe('Imported Professor Name');
   });
 
-  it('rejects non-professors and inactive professors', async () => {
-    userRepository.findOne.mockResolvedValueOnce({ ...professor, role: 'student' });
-    await expect(service.createClaim('student-1', 'group-1')).rejects.toBeInstanceOf(ForbiddenException);
+  it.each([
+    ['student', 'active'],
+    ['professor', 'pending'],
+    ['professor', 'suspended'],
+    ['professor', 'blocked'],
+  ])('rejects %s accounts with status %s', async (role, accountStatus) => {
+    userRepository.findOne.mockResolvedValueOnce({ ...professor, role, accountStatus });
 
-    userRepository.findOne.mockResolvedValueOnce({ ...professor, accountStatus: 'suspended' });
     await expect(service.createClaim('professor-1', 'group-1')).rejects.toBeInstanceOf(ForbiddenException);
+    expect(courseGroupRepository.findOne).not.toHaveBeenCalled();
+  });
+
+  it('rejects a missing group', async () => {
+    courseGroupRepository.findOne.mockResolvedValueOnce(null);
+
+    await expect(service.createClaim('professor-1', 'missing-group')).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('rejects archived groups', async () => {
+    courseGroupRepository.findOne.mockResolvedValueOnce({ ...group, isArchived: true });
+
+    await expect(service.createClaim('professor-1', 'group-1')).rejects.toThrow('Course group is archived');
+  });
+
+  it('rejects groups outside the active term', async () => {
+    courseGroupRepository.findOne.mockResolvedValueOnce({
+      ...group,
+      course: { ...group.course, term: '2026-spring' },
+    });
+
+    await expect(service.createClaim('professor-1', 'group-1')).rejects.toThrow('Course group is outside the active term');
+  });
+
+  it('rejects when active_term is not configured', async () => {
+    systemConfigRepository.findOne.mockResolvedValueOnce(null);
+
+    await expect(service.createClaim('professor-1', 'group-1')).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('maps an existing active claim to the documented conflict', async () => {
     teachingClaimRepository.findOne.mockResolvedValueOnce({ id: 'existing', releasedAt: null });
 
     await expect(service.createClaim('professor-1', 'group-1')).rejects.toThrow('teaching_claim.already_claimed');
+  });
+
+  it('maps a database uniqueness violation to the documented conflict', async () => {
+    teachingClaimRepository.findOne.mockResolvedValueOnce(null);
+    dataSource.transaction.mockRejectedValueOnce({ code: '23505' });
+
+    await expect(service.createClaim('professor-1', 'group-1')).rejects.toEqual(
+      expect.objectContaining({ message: 'teaching_claim.already_claimed' }),
+    );
   });
 
   it('releases only the owner claim with a conditional update', async () => {
@@ -113,6 +163,18 @@ describe('ProfessorTeachingClaimService', () => {
     await expect(service.releaseClaim('professor-1', 'claim-1')).rejects.toThrow('teaching_claim.already_released');
   });
 
+  it('rejects a missing claim and an already-released claim', async () => {
+    teachingClaimRepository.findOne.mockResolvedValueOnce(null);
+    await expect(service.releaseClaim('professor-1', 'missing-claim')).rejects.toBeInstanceOf(NotFoundException);
+
+    teachingClaimRepository.findOne.mockResolvedValueOnce({
+      id: 'claim-1',
+      professorId: 'professor-1',
+      releasedAt: new Date(),
+    });
+    await expect(service.releaseClaim('professor-1', 'claim-1')).rejects.toThrow('teaching_claim.already_released');
+  });
+
   it('requires fresh step-up for admin mutations', async () => {
     await expect(service.administerClaim('admin-1', undefined, {
       professorId: 'professor-1',
@@ -137,5 +199,71 @@ describe('ProfessorTeachingClaimService', () => {
       actionType: 'teaching_claim_assigned',
       afterValue: expect.objectContaining({ reason: 'Administrative review decision' }),
     }));
+  });
+
+  it('rejects an administrative mutation without a reason', async () => {
+    await expect(service.administerClaim('admin-1', 'session-1', {
+      professorId: 'professor-1',
+      courseGroupId: 'group-1',
+      action: 'assign',
+      reason: '   ',
+    })).rejects.toThrow('Reason is required');
+    expect(authService.ensureFreshStepUp).not.toHaveBeenCalled();
+  });
+
+  it('rejects administrative assignment for an already claimed group', async () => {
+    teachingClaimRepository.findOne.mockResolvedValueOnce({ id: 'existing', releasedAt: null });
+
+    await expect(service.administerClaim('admin-1', 'session-1', {
+      professorId: 'professor-1',
+      courseGroupId: 'group-1',
+      action: 'assign',
+      reason: 'Administrative review decision',
+    })).rejects.toThrow('teaching_claim.already_claimed');
+  });
+
+  it.each([
+    ['student', 'active'],
+    ['professor', 'pending'],
+    ['professor', 'suspended'],
+    ['professor', 'blocked'],
+  ])('rejects administrative assignment for %s accounts with status %s', async (role, accountStatus) => {
+    userRepository.findOne.mockResolvedValueOnce({ ...professor, role, accountStatus });
+
+    await expect(service.administerClaim('admin-1', 'session-1', {
+      professorId: 'professor-1',
+      courseGroupId: 'group-1',
+      action: 'assign',
+      reason: 'Administrative review decision',
+    })).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('revokes an active assignment and records the audit reason', async () => {
+    const claim = { id: 'claim-1', professorId: 'professor-1', courseGroupId: 'group-1', releasedAt: null };
+    teachingClaimRepository.findOne.mockResolvedValueOnce(claim);
+
+    const revoked = await service.administerClaim('admin-1', 'session-1', {
+      professorId: 'professor-1',
+      courseGroupId: 'group-1',
+      action: 'revoke',
+      reason: 'Administrative review decision',
+    });
+
+    expect(revoked.releasedAt).toEqual(expect.any(Date));
+    expect(authService.writeAuditLog).toHaveBeenCalledWith(expect.objectContaining({
+      actionType: 'teaching_claim_revoked',
+      afterValue: expect.objectContaining({ reason: 'Administrative review decision' }),
+    }));
+  });
+
+  it('rejects revocation when no active assignment exists', async () => {
+    teachingClaimRepository.findOne.mockResolvedValueOnce(null);
+
+    await expect(service.administerClaim('admin-1', 'session-1', {
+      professorId: 'professor-1',
+      courseGroupId: 'group-1',
+      action: 'revoke',
+      reason: 'Administrative review decision',
+    })).rejects.toBeInstanceOf(NotFoundException);
   });
 });

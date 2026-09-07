@@ -94,7 +94,7 @@ open checklist.
 - [x] Add auth guard + caller-scoped filtering to `GET /professor/teaching-claims`
   (`professor-teaching-claim.controller.ts`) — it's currently unauthenticated and leaks every
   professor's data. *(audit §3.2)*
-- [ ] Add `POST /professor/teaching-claims` (self-claim), `DELETE /professor/teaching-claims/{id}`
+- [x] Add `POST /professor/teaching-claims` (self-claim), `DELETE /professor/teaching-claims/{id}`
   (release), and `POST /admin/teaching-claims` (admin assign/revoke). *(audit §3.3, §10)*
 - [ ] Write the actual Excel/CSV parser for `AdminImportService.validateImportFile` — replace the
   stub with real parsing, template-version check, and field-level validation (course code/group/

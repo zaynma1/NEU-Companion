@@ -86,6 +86,9 @@ export class ProfessorTeachingClaimService {
     if (claim.professorId !== professorId) {
       throw new ForbiddenException('You can only release your own teaching claims');
     }
+    if (claim.releasedAt) {
+      throw new ConflictException('teaching_claim.already_released');
+    }
 
     const releasedAt = new Date();
     const result = await this.teachingClaimRepository.update(
