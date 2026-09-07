@@ -20,7 +20,7 @@ the repo rather than trusting file names.
 
 | File | Verdict | Why |
 |---|---|---|
-| `docs/implementation-plan.md` | **Delete.** | Duplicates `docs/milestones.md` + `docs/frontend-milestones.md` domain-by-domain, but marks almost everything `[x]` complete (auth, courses, timetable, notifications, FAQ, profiles, admin ops, security hardening, rate limiting...) which the audit directly disproves — e.g. it claims "Implement admin verification / approval workflow" and "Add professor/course relationship checks" are done, but there is no `EnrollmentController`/`EnrollmentService` in the codebase at all (audit §3.1). Keeping two trackers where one is fiction is worse than keeping one. |
+| `docs/implementation-plan.md` | **Delete.** | Duplicates `docs/milestones.md` + `docs/frontend-milestones.md` domain-by-domain, but marks almost everything `[x]` complete (auth, courses, timetable, notifications, FAQ, profiles, admin ops, security hardening, rate limiting...) which the audit directly disproves. Although the Domain 2 enrollment API has since been added, the duplicate tracker is still stale and should not be retained. |
 | `docs/milestones.md` | **Keep, but rewrite the status marks.** | Nearly every Milestone 3–5 checkbox is `[x]` "Complete," including things like "Core permissions and admin controls," "Notifications and announcements are implemented," and all of Milestone 5 (backup runbook, monitoring, rate limiting, deployment strategy — all `[x]`). The audit shows these are stubbed, buggy, or entirely unimplemented (§0, §5.1, §5.2, §7.1–7.4). This file is what `.github/prompts/start-task.prompt.md` tells every fresh Copilot session to trust first — right now it would tell Copilot "everything is done," which is actively harmful. See Section 5 for the corrected version. |
 | `docs/frontend-milestones.md` | **Keep, correct Milestone 0.** | Milestone 0 ("Backend handoff gate") is marked fully complete, including "Auth/session hardening is implemented" and "API contract stability is verified." Given §1.1–1.4 (two auth bypasses, no CSRF, client-controlled device fingerprint) and §1.5 (half the admin routes 404 against their documented contract), this gate should not read as passed. Milestones 1–5 structure itself is good and I'm building directly on it in Section 3 — only the status marks need fixing. |
 | `docs/test.md` | **Keep, rename.** | This isn't test notes — it's an independent database-design audit (missing tables, weak fingerprint storage, no unique constraint on notification idempotency keys, etc.). The name makes it look like scratch notes or a spec file, so it gets skipped. Rename to `docs/database-design-audit.md` and add it to the "source of truth" list in `.github/copilot-instructions.md` next to `backend-audit-report.md` — the two overlap on root causes (audit §11 already flags this) and should be read together. |
@@ -86,8 +86,8 @@ open checklist.
   *(audit §1.5, also affects §9 account-deletion routes)*
 - [x] Change the office-hours upsert route from `POST` to `PUT` to match `domain-07`. *(audit §8.4)*
 
-### Phase B3 — The actual product pipeline (currently has no working path end to end)
-- [ ] Build `EnrollmentController`/`EnrollmentService` and every documented Domain 2 endpoint:
+### Phase B3 — Remaining product pipeline gaps
+- [x] Build `EnrollmentController`/`EnrollmentService` and every documented Domain 2 endpoint:
   `GET /courses`, `GET /courses/{id}`, `GET /courses/{id}/groups`, `GET /enrollments`,
   `POST /enrollments`, `POST /enrollments/{id}/drop`, `POST /enrollments/switch`,
   `GET /courses/{id}/groups/{id}/eligibility`, `GET /students/me/courses`. *(audit §3.1)*
@@ -238,7 +238,7 @@ first if you want to unblock navigation work, but the real screen waits on the A
 - Step-up re-auth prompt — shared component, triggered before any sensitive action app-wide
 - Account deletion request / cancel / status screen
 
-**Courses & enrollment (Domain 2 / Milestone 3) — (blocked on B3, no API exists yet)**
+**Courses & enrollment (Domain 2 / Milestone 3) — backend API available; mobile screens remain**
 - Course catalog / browse (student)
 - Course detail — groups list, eligibility
 - Enrollment confirmation sheet, drop/switch flow
@@ -257,7 +257,7 @@ first if you want to unblock navigation work, but the real screen waits on the A
 - Notification feed
 - Notification preferences (reminders/announcements toggles, per channel)
 - Muted courses management
-- Announcement compose (professor) **(blocked on B3/B4 §5.3, §3.3)**
+- Announcement compose (professor) **(blocked on B4 §5.3)**
 - Announcement detail
 - Admin: delivery status / failed notifications / retry **(blocked on B4 §5.2)**
 
@@ -397,8 +397,9 @@ stubbed endpoints as done.
 3. Doc cleanup from Section 0 — five-minute job, do it once B0/B1 are merged so the corrected
    milestone docs reflect the real state rather than needing a second pass.
 4. Phase B2 (route prefixes) — cheap, unblocks the frontend team from hardcoding wrong paths.
-5. Phase B3 (enrollment API, import pipeline, reminder dispatch) — this is the actual product;
-   frontend Milestone 3 screens for Domains 2, 4, and 5 are blocked until this lands.
+5. Phase B3 remaining product pipeline (import processing and reminder dispatch) — this is the
+  actual product; Domain 2 now has a backend API, while Domains 4 and 5 remain blocked until
+  their import and reminder paths land.
 6. Frontend Milestone 2 (auth/onboarding screens) can proceed in parallel with B3 once B1/B2 are
    done — it only depends on Domain 1, which just needs its Phase B4 bug fixes.
 7. Phase B4 sweep (remaining domain bugs) alongside frontend Milestone 3, fixing each domain
